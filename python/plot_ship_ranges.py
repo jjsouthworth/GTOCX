@@ -85,8 +85,8 @@ def plot_stars(elems, t0=0.0, tf=90.0, outfile=None, draw=True):
     for t in tvec:
         states = elem_to_state(elems, t)
         x, y, _, _, _, _ = states.transpose()
-        ax.plot(x, y, 'k.', markersize=1)
-        ax.plot(x[0], y[0], 'r*')
+        ax.plot(x, y, 'k.', markersize=1, zorder=100)
+        ax.plot(x[0], y[0], 'r*', zorder=101)
 
     ax.grid(True)
     ax.axis('equal')
@@ -112,8 +112,9 @@ def unit(x):
     return x / np.linalg.norm(x)
 
 
-def integrate_trajectories(initial_elems, dv, thetas):
+def integrate_trajectories(initial_elems, dv, thetas, max_time):
     traj = list()
+    n_steps = int(max_time) + 1
 
     # Create an integrator
     integrator = integrate.ode(equations_of_motion).set_integrator('dopri5')
@@ -123,43 +124,32 @@ def integrate_trajectories(initial_elems, dv, thetas):
     vhat = unit(x0[3:])
 
     for theta in thetas:
-        # Define a nan-array.
-        nan_array = np.array(6*[np.nan])
-        too_low = False
-        too_high = False
-
         # Compute and apply delta-v vector
         deltav = rotz(dv*vhat, theta)
         xi = x0 + np.concatenate(([0, 0, 0], deltav))
         integrator.set_initial_value(xi, t=0.0)
 
         # Integrate to every 1 Myr step.
-        x = np.zeros((91, 6))
-        times = range(91)
+        x = np.zeros((n_steps, 6))
+        times = range(n_steps)
         for t in times:
             x[t, :] = integrator.integrate(t)
-            r = np.linalg.norm(x[t,:3])
-            if r < 2.0:
-                too_low = True
-                break
-            if r > 32.0:
-                too_high = True
+            r = np.linalg.norm(x[t, :3])
+            if r < 2.0 or r > 32.0:
+                x = x[:t, :]
                 break
 
-        if too_low:
-            traj.append(nan_array)
-        elif too_high:
-            traj.append(x[t, :])
-        else:
-            traj.append(x[-1, :])
+        # Store the entire trajectory.
+        traj.append(x)
 
     return np.array(traj)
 
 
 def plot_trajectories(ax, dv, traj, color='k'):
-    label = "{:.0f} km/s".format(dv)
-    linespec = color + '.'
-    ax.plot(traj[:, 0], traj[:, 1], linespec, label=label)
+    for i, x in enumerate(traj):
+        label = "{:.0f} km/s".format(dv) if i == 0 else None
+        linespec = color + '-'
+        ax.plot(x[:, 0], x[:, 1], linespec, label=label)
 
     return ax
 
@@ -174,9 +164,9 @@ def main(args):
     # Generate trajectories with various delta-v's.
     dvs = np.array([100, 200, 300, 400, 750])  # km/s
     colors = ['b', 'r', 'g', 'm', 'y']
-    for dv, c in zip(dvs, colors):
+    for dv, c in sorted(zip(dvs, colors), reverse=True):
         thetas = np.linspace(0, 2*np.pi, 360)
-        traj = integrate_trajectories(star_elem[0, :], dv / kpc_per_myr, thetas)
+        traj = integrate_trajectories(star_elem[0, :], dv / kpc_per_myr, thetas, args.time)
 
         # Plot trajectories.
         plot_trajectories(ax, dv, traj, c)
@@ -187,7 +177,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Draw or animate the GTOCX galaxy.")
     parser.add_argument("star_file", help="Star data file.")
-    parser.add_argument("-t", "--time", type=float, default=0.0, help="The stars will be drawn at the given time.")
+    parser.add_argument("-t", "--time", type=float, default=90.0, help="The maximum integration time.")
 
     input_args = parser.parse_args()
     main(input_args)
