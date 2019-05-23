@@ -1,8 +1,12 @@
+#pragma once
+
 #include <string>
 #include <vector>
+#include <cmath>
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include "common.h"
 
 class Star {
 public:
@@ -14,25 +18,26 @@ public:
 
     // variables
     int id;
-    double R;
-    double i;
+    double R; // kpc
+    double i; // all angles in rad
     double Omega;
     double phi;
     double theta_f;
     bool isSettled;
 
     // member functions
-    
+    StateVec getState(double t);
 };
 
-class StarCollection {
+class Galaxy {
 public:
     // Constructors & Destructors
-    StarCollection();
-    ~StarCollection();
+    Galaxy();
+    ~Galaxy();
 
     // variables
     std::vector<Star> starVec;
+    std::vector<bool> settled;
 
     // member functions
     void loadStars(std::string filename);
