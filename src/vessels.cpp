@@ -1,4 +1,5 @@
 #include <stdexcept>
+#include <memory>
 
 #include "vessels.h"
 
@@ -6,8 +7,6 @@
 Vessel::Vessel(const StateVec& sv, int imps, double msi, double mtdV) :
     sv_(sv), dV_(0.0), impulses_(imps), stars_(),
     max_single_impulse_(msi), max_total_dV_(mtdV) {}
-
-Vessel::~Vessel() {}
 
 // MotherShip
 MotherShip::MotherShip(const StateVec& sv) :
@@ -19,10 +18,25 @@ bool MotherShip::has_pods() const {
     return pods_ > 0;
 }
 
-SettlementPod MotherShip::drop_pod() {
-    if(!has_pods()) throw std::runtime_error("No remaining SettlemetPods remaining in Mothership");
+std::shared_ptr<Vessel> MotherShip::settle(std::shared_ptr<Star> star) {
+    std::shared_ptr<SettlementPod> pod = drop_pod();
+
+    if(!pod->rendezvous(star)) {
+        throw std::runtime_error("SettlemetPod failed to rendezvous with star");
+    }
+    pod->settle(star);
+
+    return std::static_pointer_cast<Vessel>(pod);
+}
+
+std::shared_ptr<SettlementPod> MotherShip::drop_pod() {
+    if(!has_pods()) {
+        throw std::runtime_error("No remaining SettlemetPods remaining in Mothership");
+    }
+
     --pods_;
-    return SettlementPod(this->sv_);
+
+    return std::make_shared<SettlementPod>(this->sv_);
 }
 
 // SettlementPod
