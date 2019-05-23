@@ -123,6 +123,11 @@ def integrate_trajectories(initial_elems, dv, thetas):
     vhat = unit(x0[3:])
 
     for theta in thetas:
+        # Define a nan-array.
+        nan_array = np.array(6*[np.nan])
+        too_low = False
+        too_high = False
+
         # Compute and apply delta-v vector
         deltav = rotz(dv*vhat, theta)
         xi = x0 + np.concatenate(([0, 0, 0], deltav))
@@ -133,17 +138,28 @@ def integrate_trajectories(initial_elems, dv, thetas):
         times = range(91)
         for t in times:
             x[t, :] = integrator.integrate(t)
+            r = np.linalg.norm(x[t,:3])
+            if r < 2.0:
+                too_low = True
+                break
+            if r > 32.0:
+                too_high = True
+                break
 
-        traj.append(x)
+        if too_low:
+            traj.append(nan_array)
+        elif too_high:
+            traj.append(x[t, :])
+        else:
+            traj.append(x[-1, :])
 
-    return traj
+    return np.array(traj)
 
 
 def plot_trajectories(ax, dv, traj, color='k'):
-    for i, x in enumerate(traj):
-        label = "{:.0f} km/s".format(dv) if i == 0 else None
-        linespec = color + '-'
-        ax.plot(x[:, 0], x[:, 1], linespec, label=label)
+    label = "{:.0f} km/s".format(dv)
+    linespec = color + '.'
+    ax.plot(traj[:, 0], traj[:, 1], linespec, label=label)
 
     return ax
 
@@ -159,7 +175,7 @@ def main(args):
     dvs = np.array([100, 200, 300, 400, 750])  # km/s
     colors = ['b', 'r', 'g', 'm', 'y']
     for dv, c in zip(dvs, colors):
-        thetas = np.linspace(0, 2*np.pi, 10)
+        thetas = np.linspace(0, 2*np.pi, 360)
         traj = integrate_trajectories(star_elem[0, :], dv / kpc_per_myr, thetas)
 
         # Plot trajectories.
