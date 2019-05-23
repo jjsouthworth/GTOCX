@@ -1,2 +1,2 @@
 #!/bin/bash
-g++ -o bin/test -Iinc/ test/test.cpp src/star.cpp
+g++ -std=c++11 -o bin/test -Iinc/ test/test.cpp src/star.cpp src/vessels.cpp

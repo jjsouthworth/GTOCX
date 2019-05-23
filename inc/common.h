@@ -29,3 +29,4 @@ static const double K0 = 0.00287729; // (km/s)^-1
 static const long long KM_PER_KPC = 30856775814671900; // km
 static const double YR_PER_MYR = 1e6; // yr
 static const int SEC_PER_YR = 31557600; // sec
+static const double KM_PER_SEC_TO_KPC_PER_MYR = 1E6*SEC_PER_YR / KM_PER_KPC;
