@@ -26,6 +26,8 @@ static const double K3 = 0.000198502; // (km/s)^-1/kpc^3
 static const double K2 = -0.0010625; // (km/s)^-1/kpc^2
 static const double K1 = 0.0023821; // (km/s)^-1/kpc
 static const double K0 = 0.00287729; // (km/s)^-1
+static const double K[9] = { K0, K1, K2, K3, K4, K5, K6, K7, K8};
+ 
 static const long long KM_PER_KPC = 30856775814671900; // km
 static const double YR_PER_MYR = 1e6; // yr
 static const int SEC_PER_YR = 31557600; // sec
