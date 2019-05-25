@@ -2,6 +2,7 @@
 #include <string>
 
 #include <boost/program_options.hpp>
+#include <Eigen/Dense>
 
 namespace po = boost::program_options;
 
@@ -11,7 +12,7 @@ int main(int argc, char** argv) {
   std::string star_file;
   po::options_description desc("Options in test");
   desc.add_options()
-      ("help", "Write help message")
+      ("help,h", "Write help message")
       ("starfile,f", po::value(&star_file)->default_value("../data/stars.txt"))
       ;
   po::variables_map vm;

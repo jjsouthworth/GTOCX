@@ -16,6 +16,13 @@ set(GTOCX_VERSION_MINOR_1)
 # To add other boost libraries, just keep adding to the list following COMPONENTS
 find_package(Boost 1.65.0 COMPONENTS program_options REQUIRED)
 
+# Eigen setup. Download from: http://eigen.tuxfamily.org/index.php?title=Main_Page#Download
+# Extract and follow INSTALL directions for global install
+find_package(Eigen3 3.3 REQUIRED)
+
+# Set any specific compile options you need here:
+add_compile_options(-std=c++11)
+
 # Set up the libgtoc library that executables will link with
 # If you add a source file (.cpp/.cc), add it to the 
 include_directories(inc ${Boost_INCLUDE_DIR})
@@ -23,6 +30,12 @@ set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(SOURCES ${SOURCE_DIR}/propagate.cpp ${SOURCE_DIR}/star.cpp ${SOURCE_DIR}/vessels.cpp)
 add_library(gtoc ${SOURCES})
 
+set(external_link_libraries ${Boost_LIBRARIES} Eigen3::Eigen)
+
 # Do the following for each executable
 add_executable(star_test ${CMAKE_SOURCE_DIR}/test/star_test.cpp)
-target_link_libraries(star_test ${Boost_LIBRARIES} gtoc)
+target_link_libraries(star_test ${external_link_libraries} gtoc)
+
+add_executable(matrixmath ${CMAKE_SOURCE_DIR}/bin/matrixmath.cpp)
+target_link_libraries(matrixmath ${external_link_libraries} gtoc)
+
