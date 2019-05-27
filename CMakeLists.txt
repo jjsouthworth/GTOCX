@@ -27,15 +27,18 @@ add_compile_options(-std=c++11)
 # If you add a source file (.cpp/.cc), add it to the 
 include_directories(inc ${Boost_INCLUDE_DIR})
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
-set(SOURCES ${SOURCE_DIR}/propagate.cpp ${SOURCE_DIR}/star.cpp ${SOURCE_DIR}/vessels.cpp)
+set(TEST_DIR ${CMAKE_SOURCE_DIR}/test)
+set(BIN_DIR ${CMAKE_SOURCE_DIR}/bin)
+set(SOURCES ${SOURCE_DIR}/propagate.cpp ${SOURCE_DIR}/star.cpp ${SOURCE_DIR}/vessels.cpp ${SOURCE_DIR}/events.cpp)
 add_library(gtoc ${SOURCES})
-
 set(external_link_libraries ${Boost_LIBRARIES} Eigen3::Eigen)
 
+set(EXECUTABLE_OUTPUT_PATH ${BIN_DIR})
+
 # Do the following for each executable
-add_executable(star_test ${CMAKE_SOURCE_DIR}/test/star_test.cpp)
+add_executable(star_test ${TEST_DIR}/star_test.cpp)
 target_link_libraries(star_test ${external_link_libraries} gtoc)
 
-add_executable(matrixmath ${CMAKE_SOURCE_DIR}/bin/matrixmath.cpp)
-target_link_libraries(matrixmath ${external_link_libraries} gtoc)
+add_executable(event_test ${TEST_DIR}/event_test.cpp)
+target_link_libraries(event_test ${external_link_libraries} gtoc)
 
