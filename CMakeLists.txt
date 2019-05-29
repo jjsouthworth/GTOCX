@@ -25,7 +25,7 @@ add_compile_options(-std=c++11)
 
 # Set up the libgtoc library that executables will link with
 # If you add a source file (.cpp/.cc), add it to the 
-include_directories(inc ${Boost_INCLUDE_DIR})
+include_directories(inc ${Boost_INCLUDE_DIR} /usr/include/eigen3)
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(TEST_DIR ${CMAKE_SOURCE_DIR}/test)
 set(BIN_DIR ${CMAKE_SOURCE_DIR}/bin)
@@ -42,3 +42,5 @@ target_link_libraries(star_test ${external_link_libraries} gtoc)
 add_executable(event_test ${TEST_DIR}/event_test.cpp)
 target_link_libraries(event_test ${external_link_libraries} gtoc)
 
+add_executable(prop_test ${TEST_DIR}/prop_test.cpp)
+target_link_libraries(prop_test ${external_link_libraries} gtoc)
