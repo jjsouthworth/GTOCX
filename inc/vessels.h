@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "common.h"
+#include "events.h"
 #include "star.h"
 
 class Vessel {
@@ -13,8 +14,7 @@ public:
 
     virtual ~Vessel() = default;
 
-    virtual bool rendezvous(std::shared_ptr<Star> star);
-    virtual std::shared_ptr<Vessel> settle(std::shared_ptr<Star> star) = 0;
+    virtual std::vector<Event> settle(std::shared_ptr<Star> star) = 0;
 
     protected:
       StateVec sv_;
@@ -40,12 +40,12 @@ public:
     MotherShip(const StateVec& sv);
 
     bool has_pods() const;
-    std::shared_ptr<Vessel> settle(std::shared_ptr<Star> star);
+    std::vector<Event> settle(std::shared_ptr<Star> star);
 
 private:
     int pods_;
 
-    std::shared_ptr<SettlementPod> drop_pod();
+    Event drop_pod();
 };
 
 class SettlementPod : public Vessel {
@@ -53,7 +53,7 @@ public:
     SettlementPod() = delete;
     SettlementPod(const StateVec& sv);
 
-    std::shared_ptr<Vessel> settle(std::shared_ptr<Star> star);
+    std::vector<Event> settle(std::shared_ptr<Star> star);
 };
 
 class FastShip : public Vessel {
@@ -61,7 +61,7 @@ public:
     FastShip() = delete;
     FastShip(const StateVec& sv);
 
-    std::shared_ptr<Vessel> settle(std::shared_ptr<Star> star);
+    std::vector<Event> settle(std::shared_ptr<Star> star);
 };
 
 class SettlerShip : public Vessel {
@@ -69,5 +69,5 @@ public:
     SettlerShip() = delete;
     SettlerShip(const StateVec& sv);
 
-    std::shared_ptr<Vessel> settle(std::shared_ptr<Star> star);
+    std::vector<Event> settle(std::shared_ptr<Star> star);
 };

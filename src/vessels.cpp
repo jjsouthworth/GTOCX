@@ -18,25 +18,32 @@ bool MotherShip::has_pods() const {
     return pods_ > 0;
 }
 
-std::shared_ptr<Vessel> MotherShip::settle(std::shared_ptr<Star> star) {
-    std::shared_ptr<SettlementPod> pod = drop_pod();
+std::vector<Event> MotherShip::settle(std::shared_ptr<Star> star) {
+	std::vector<Event> result;
 
-    if(!pod->rendezvous(star)) {
-        throw std::runtime_error("SettlemetPod failed to rendezvous with star");
-    }
-    pod->settle(star);
+	// generate event to create settlement pod
+	Event e1 = drop_pod();
+	result.push_back(e1);
 
-    return std::static_pointer_cast<Vessel>(pod);
+	// generate a rendevous event for settlement pod
+	Event e2(0,NONE,0.0,sv_); // need an interface to do this...
+	result.push_back(e2);
+
+	// generate a settle event for settlement pod
+	Event e3(0,NONE,0.0,sv_); // need an interface to do this...
+	result.push_back(e3);
+
+    return result;
 }
 
-std::shared_ptr<SettlementPod> MotherShip::drop_pod() {
+Event MotherShip::drop_pod() {
     if(!has_pods()) {
         throw std::runtime_error("No remaining SettlemetPods remaining in Mothership");
     }
 
     --pods_;
 
-    return std::make_shared<SettlementPod>(this->sv_);
+    return Event(0,NONE,0.0,sv_);
 }
 
 // SettlementPod
