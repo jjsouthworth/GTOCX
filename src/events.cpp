@@ -40,6 +40,32 @@ void Event::print_event(){
     printf("Acceleration:\t%f\t%f\t%f\n",state.ax,state.ay,state.az);
 }
 
+void Event_Queue::push(const Event& e) {
+	heap_.push(e);
+}
+
+std::vector<Event> Event_Queue::pop(double dt) {
+	std::vector<Event> result;
+	if(heap_.empty()) return result;
+
+	// grab first event
+	result.push_back(heap_.top());
+	heap_.pop();
+
+	// grab all remaining events which fall within dt of first event on heap
+	double t0 = result.front().time;
+	while(!heap_.empty()) {
+		if(heap_.top().time - t0 < dt) {
+			result.push_back(heap_.top());
+			heap_.pop();
+		} else {
+			break;
+		}
+	}
+
+	return result;
+}
+
 Event_List::Event_List(){
     // TODO, initialize this to Sol coordinates at this time
     Star sol = Star(0,8.34,180.0,0.0,0.0,-162.47249203851774016,1);
