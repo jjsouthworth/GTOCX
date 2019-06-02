@@ -33,7 +33,7 @@ endif()
 set(EIGEN3_INC_DIR $ENV{EIGEN3_PATH})
 
 # Set any specific compile options you need here:
-add_compile_options(-std=c++11)
+add_compile_options(-std=c++11 -Wall)
 
 # Set up the libgtoc library that executables will link with
 # If you add a source file (.cpp/.cc), add it to the 
