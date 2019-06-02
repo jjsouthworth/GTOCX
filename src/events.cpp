@@ -35,9 +35,9 @@ void Event::print_event(){
     }
     printf("Event id:\t%d\t%s\n",id,stype.c_str());
     printf("Time:\t\t%f\n",time);
-    printf("Location:\t%f\t%f\t%f\n",state.x, state.y, state.z);
-    printf("Motion:\t\t%f\t%f\t%f\n",state.vx,state.vy,state.vz);
-    printf("Acceleration:\t%f\t%f\t%f\n",state.ax,state.ay,state.az);
+    printf("Location:\t%f\t%f\t%f\n",state.x(), state.y(), state.z());
+    printf("Motion:\t\t%f\t%f\t%f\n",state.vx(),state.vy(),state.vz());
+    printf("Acceleration:\t%f\t%f\t%f\n",state.ax(),state.ay(),state.az());
 }
 
 void Event_Queue::push(const Event& e) {
