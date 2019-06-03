@@ -12,26 +12,38 @@ project(GTOCX)
 set(GTOCX_VERSION_MAJOR_0)
 set(GTOCX_VERSION_MINOR_1)
 
+# This is a thing that will help with emacs code completion
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # This was the default boost on my Ubuntu 18 machine, I'm not tied to it in any way -- JSF
 # To add other boost libraries, just keep adding to the list following COMPONENTS
 find_package(Boost 1.65.0 COMPONENTS program_options REQUIRED)
 
 # Eigen setup. Download from: http://eigen.tuxfamily.org/index.php?title=Main_Page#Download
 # Extract and follow INSTALL directions for global install
-find_package(Eigen3 3.3 REQUIRED)
+# Make sure the EIGEN3_INCLUDE_DIR has been set to the directory containing the 'Eigen' folder in the download:
+# "export EIGEN3_INCLUDE_DIR=/path/to/eigenfolder/" is nice to put in your VM's ~/.bashrc
+set( EIGEN3_INCLUDE_DIR "$ENV{EIGEN3_INCLUDE_DIR}" )
+if( NOT EIGEN3_INCLUDE_DIR )
+    MESSAGE( FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
+else()
+    MESSAGE(STATUS "Using Eigen directory: ${EIGEN3_INCLUDE_DIR}")
+endif()
+
+set(EIGEN3_INC_DIR $ENV{EIGEN3_PATH})
 
 # Set any specific compile options you need here:
 add_compile_options(-std=c++11)
 
 # Set up the libgtoc library that executables will link with
 # If you add a source file (.cpp/.cc), add it to the 
-include_directories(inc ${Boost_INCLUDE_DIR} /usr/include/eigen3)
+include_directories(inc ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR})
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(TEST_DIR ${CMAKE_SOURCE_DIR}/test)
 set(BIN_DIR ${CMAKE_SOURCE_DIR}/bin)
-set(SOURCES ${SOURCE_DIR}/propagate.cpp ${SOURCE_DIR}/star.cpp ${SOURCE_DIR}/vessels.cpp ${SOURCE_DIR}/events.cpp)
+set(SOURCES ${SOURCE_DIR}/propagate.cpp ${SOURCE_DIR}/star.cpp ${SOURCE_DIR}/vessels.cpp ${SOURCE_DIR}/events.cpp ${SOURCE_DIR}/shooting_alg.cpp)
 add_library(gtoc ${SOURCES})
-set(external_link_libraries ${Boost_LIBRARIES} Eigen3::Eigen)
+set(external_link_libraries ${Boost_LIBRARIES})
 
 set(EXECUTABLE_OUTPUT_PATH ${BIN_DIR})
 
@@ -44,3 +56,10 @@ target_link_libraries(event_test ${external_link_libraries} gtoc)
 
 add_executable(prop_test ${TEST_DIR}/prop_test.cpp)
 target_link_libraries(prop_test ${external_link_libraries} gtoc)
+
+add_executable(matrixmath ${CMAKE_SOURCE_DIR}/bin/matrixmath.cpp)
+target_link_libraries(matrixmath ${external_link_libraries} gtoc)
+
+add_executable(shooter_test ${CMAKE_SOURCE_DIR}/test/shooter_test.cpp)
+target_link_libraries(shooter_test ${external_link_libraries} gtoc)
+

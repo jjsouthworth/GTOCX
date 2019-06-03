@@ -36,16 +36,16 @@ StateVec Star::getState(double t) {
     double s_nt_phi = sin(nt_phi);
 
     // populate state
-    starState.x = R * (c_nt_phi*cos(Omega) - \
-        s_nt_phi*cos(i)*sin(Omega)); // kpc
-    starState.y = R * (c_nt_phi*sin(Omega) + \
-        s_nt_phi*cos(i)*cos(Omega)); // kpc
-    starState.z = R * (s_nt_phi*sin(i)); //kpc
-    starState.vx = vc * (-s_nt_phi*cos(Omega) - \
-        c_nt_phi*cos(i)*sin(Omega)); // kpc/Myr
-    starState.vy = vc * (-s_nt_phi*sin(Omega) + \
-        c_nt_phi*cos(i)*cos(Omega)); // kpc/Myr
-    starState.vz = vc * (c_nt_phi*sin(i)); //kpc/Myr
+    starState.set_x(R * (c_nt_phi*cos(Omega) -  \
+        s_nt_phi*cos(i)*sin(Omega))); // kpc
+    starState.set_y(R * (c_nt_phi*sin(Omega) +  \
+        s_nt_phi*cos(i)*cos(Omega))); // kpc
+    starState.set_z(R * (s_nt_phi*sin(i))); //kpc
+    starState.set_vx(vc * (-s_nt_phi*cos(Omega) -   \
+        c_nt_phi*cos(i)*sin(Omega))); // kpc/Myr
+    starState.set_vy(vc * (-s_nt_phi*sin(Omega) +   \
+        c_nt_phi*cos(i)*cos(Omega))); // kpc/Myr
+    starState.set_vz(vc * (c_nt_phi*sin(i))); //kpc/Myr
 
     return starState;
 }
