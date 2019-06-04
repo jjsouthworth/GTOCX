@@ -29,11 +29,11 @@ class StateVec {
     sv_data[1] = y;
     sv_data[2] = z;
     sv_data[3] = vx;
-    sv_data[4] = vx;
-    sv_data[5] = vx;
+    sv_data[4] = vy;
+    sv_data[5] = vz;
     sv_data[6] = ax;
-    sv_data[7] = ax;
-    sv_data[8] = ax;
+    sv_data[7] = ay;
+    sv_data[8] = az;
   }
 
   // Getter methods
@@ -115,6 +115,7 @@ class StateVec {
   inline std::array<double, 6> as_posvel_array() {
     std::array<double, 6> tmp = {sv_data[0], sv_data[1], sv_data[2],
                                  sv_data[3], sv_data[4], sv_data[5]};
+    return tmp;
   }
 
   inline std::vector<double> as_posvel_vector() {
@@ -122,7 +123,7 @@ class StateVec {
                                sv_data[3], sv_data[4], sv_data[5]};
   }
 
-  void print_state(const std::ostream& stream=std::cout) {
+  void print_state(const std::ostream& stream=std::cout) const {
     printf("%.3f, %.3f, %.3f, %.6f, %.6f, %.6f\n",sv_data[0], sv_data[1], sv_data[2], sv_data[3], sv_data[4], sv_data[5]);
   }
 

@@ -2,3 +2,9 @@
 *.swp
 *.idea
 /build
+Makefile
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.a
+compile_commands.json
