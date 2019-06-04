@@ -19,6 +19,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # To add other boost libraries, just keep adding to the list following COMPONENTS
 find_package(Boost 1.65.0 COMPONENTS program_options REQUIRED)
 
+# NLOPT setup. Download from: https://github.com/stevengj/nlopt/archive/v2.6.1.tar.gz
+# Extract and follow directions here: https://nlopt.readthedocs.io/en/latest/NLopt_Installation/
+find_package(NLopt COMPONENTS program_options REQUIRED)
+
 # Eigen setup. Download from: http://eigen.tuxfamily.org/index.php?title=Main_Page#Download
 # Extract and follow INSTALL directions for global install
 # Make sure the EIGEN3_INCLUDE_DIR has been set to the directory containing the 'Eigen' folder in the download:
@@ -36,12 +40,12 @@ set(EIGEN3_INC_DIR $ENV{EIGEN3_PATH})
 add_compile_options(-std=c++11)
 
 # Set up the libgtoc library that executables will link with
-# If you add a source file (.cpp/.cc), add it to the 
-include_directories(inc ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR})
+# If you add a source file (.cpp/.cc), add it to the
+include_directories(inc ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} ${NLopt_INCLUDE_DIR})
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(TEST_DIR ${CMAKE_SOURCE_DIR}/test)
 set(BIN_DIR ${CMAKE_SOURCE_DIR}/bin)
-set(SOURCES ${SOURCE_DIR}/propagate.cpp ${SOURCE_DIR}/star.cpp ${SOURCE_DIR}/vessels.cpp ${SOURCE_DIR}/events.cpp ${SOURCE_DIR}/shooting_alg.cpp)
+set(SOURCES ${SOURCE_DIR}/propagate.cpp ${SOURCE_DIR}/star.cpp ${SOURCE_DIR}/vessels.cpp ${SOURCE_DIR}/events.cpp ${SOURCE_DIR}/transfer.cpp)
 add_library(gtoc ${SOURCES})
 set(external_link_libraries ${Boost_LIBRARIES})
 
@@ -57,9 +61,5 @@ target_link_libraries(event_test ${external_link_libraries} gtoc)
 add_executable(prop_test ${TEST_DIR}/prop_test.cpp)
 target_link_libraries(prop_test ${external_link_libraries} gtoc)
 
-add_executable(matrixmath ${CMAKE_SOURCE_DIR}/bin/matrixmath.cpp)
-target_link_libraries(matrixmath ${external_link_libraries} gtoc)
-
-add_executable(shooter_test ${CMAKE_SOURCE_DIR}/test/shooter_test.cpp)
+add_executable(shooter_test ${CMAKE_SOURCE_DIR}/test/transfer_test.cpp)
 target_link_libraries(shooter_test ${external_link_libraries} gtoc)
-
