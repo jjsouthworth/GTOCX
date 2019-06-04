@@ -1,12 +1,19 @@
 #include <cmath>
 #include <Eigen/Dense>
 #include <vector>
+#include <boost/numeric/odeint.hpp>
 #include "common.h"
 #include "propagate.h"
 
 using namespace std;
 using namespace Eigen;
+using namespace boost::numeric::odeint;
 
+
+// Define types and steppers for the integrator.
+typedef Matrix<double, 6, 6> STM;
+typedef vector<double> vec_type;
+typedef runge_kutta_fehlberg78 <vec_type> error_stepper;
 
 double _kr(double r)
 {
@@ -68,7 +75,7 @@ void eqns_of_motion_stm(const vector<double> &x, vector<double> &dxdt, double t)
 	vector<double>::const_iterator first = x.begin() + 6;
 	vector<double>::const_iterator last = x.begin() + 42;
 	vector<double> phi_vec(first, last);
-	Map<MatrixXd> phi(phi_vec.data(), 6, 6);
+	Map<STM> phi(phi_vec.data(), 6, 6);
 
 	// Build the Jacobian of the equations of motion.
 	MatrixXd jacobian = MatrixXd::Zero(6, 6);
@@ -93,7 +100,7 @@ void eqns_of_motion_stm(const vector<double> &x, vector<double> &dxdt, double t)
 		}
 
 	// Compute the derivative of the STM.
-	MatrixXd phi_dot(6, 6);
+	STM phi_dot;
 	phi_dot = jacobian * phi;
 
 	// Insert the elements of the STM derivative into the state vector.
@@ -103,4 +110,17 @@ void eqns_of_motion_stm(const vector<double> &x, vector<double> &dxdt, double t)
 				k = 6*i + j;
 				dxdt[k+6] = phi_dot(i, j);
 			}
+}
+
+
+size_t propagate_eom(vec_type *x, double t0, double t1){
+	controlled_runge_kutta < error_stepper > rk78_stepper;
+	size_t steps = integrate_adaptive(rk78_stepper, eqns_of_motion, *x, t0, t1, 0.1);
+	return steps;
+}
+
+size_t propagate_eom_stm(vec_type *x, double t0, double t1){
+	controlled_runge_kutta < error_stepper > rk78_stepper;
+	size_t steps = integrate_adaptive(rk78_stepper, eqns_of_motion_stm, *x, t0, t1, 0.1);
+	return steps;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <vector>
 #include <iostream>
 
 class StateVec {
@@ -116,6 +117,11 @@ class StateVec {
                                  sv_data[3], sv_data[4], sv_data[5]};
   }
 
+  inline std::vector<double> as_posvel_vector() {
+    std::vector<double> tmp = {sv_data[0], sv_data[1], sv_data[2],
+                               sv_data[3], sv_data[4], sv_data[5]};
+  }
+
   void print_state(const std::ostream& stream=std::cout) {
     printf("%.3f, %.3f, %.3f, %.6f, %.6f, %.6f\n",sv_data[0], sv_data[1], sv_data[2], sv_data[3], sv_data[4], sv_data[5]);
   }
@@ -139,7 +145,7 @@ static const double K2 = -0.0010625; // (km/s)^-1/kpc^2
 static const double K1 = 0.0023821; // (km/s)^-1/kpc
 static const double K0 = 0.00287729; // (km/s)^-1
 static const double K[9] = { K0, K1, K2, K3, K4, K5, K6, K7, K8};
- 
+
 static const long long KM_PER_KPC = 30856775814671900; // km
 static const double YR_PER_MYR = 1e6; // yr
 static const int SEC_PER_YR = 31557600; // sec

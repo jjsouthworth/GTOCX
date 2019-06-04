@@ -61,5 +61,5 @@ target_link_libraries(event_test ${external_link_libraries} gtoc)
 add_executable(prop_test ${TEST_DIR}/prop_test.cpp)
 target_link_libraries(prop_test ${external_link_libraries} gtoc)
 
-add_executable(shooter_test ${CMAKE_SOURCE_DIR}/test/transfer_test.cpp)
-target_link_libraries(shooter_test ${external_link_libraries} gtoc)
+add_executable(transfer_test ${CMAKE_SOURCE_DIR}/test/transfer_test.cpp)
+target_link_libraries(transfer_test ${external_link_libraries} gtoc)
