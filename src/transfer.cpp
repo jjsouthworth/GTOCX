@@ -22,12 +22,12 @@ int eom_shooter(vec_type *x1, vec_type *x2, double dt, vec_type *dv1, vec_type *
   int i, iter = 0;
   int max_iter = 100;
   double err;
-  STM Phi, Phi_inv;
-  SubSTM A, B, Binv, C, D;
-  vec_type x, x1v, x2v;
+  STM Phi;
+  SubSTM B;
+  vec_type x;
 
-  x1v = *x1;
-  x2v = *x2;
+  vec_type &x1v = *x1;
+  vec_type &x2v = *x2;
 
   // Initialize position and velocity error vectors.
   Eigen::Vector3d dR2 = Eigen::Vector3d::Zero(3);
@@ -50,7 +50,7 @@ int eom_shooter(vec_type *x1, vec_type *x2, double dt, vec_type *dv1, vec_type *
   // Iterate up to some max number of iterations. Break early if converged.
   for (iter=0; iter < max_iter; iter++){
     // Copy the initial state and add the previous iteration's delta-v.
-    x.assign(xi.begin(), xi.end());  // Apparently this works for copying vectors.
+    x.assign(xi.begin(), xi.end());
 
     // Propagate the state forward by dt.
     propagate_eom_stm(&x, 0.0, dt);
@@ -65,24 +65,17 @@ int eom_shooter(vec_type *x1, vec_type *x2, double dt, vec_type *dv1, vec_type *
       break;
 
     // Convert the trailing 36 elements into a matrix and invert it.
-    for (int i=6; i<42; i++)
-      Phi << x[i];
-    Phi_inv = Phi.inverse();
+    for (int i=0; i<36; i++)
+      Phi(i) = x[i+6];
 
-    // Extract the 3x3 submatrices.
-    A = Phi.block<3,3>(0,0);
+    // Extract the 3x3 submatrix and compute the velocity correction.
     B = Phi.block<3,3>(0,3);
-    C = Phi.block<3,3>(3,0);
-    D = Phi.block<3,3>(3,3);
+    dV1 = B.colPivHouseholderQr().solve(dR2);
 
     // Compute the corrections to initial velocity and apply it to the initial conditions.
-    Binv = B.inverse();
-    dV1 = C*dR2 - D*(Binv*(A*dR2));
     for (i=0; i<3; i++)
       xi[i+3] += dV1[i];
   }
-
-  printf("%d steps.", iter);
 
   // Compute and store the initial and final delta-v.
   for (i=0; i<3; i++){
@@ -90,8 +83,11 @@ int eom_shooter(vec_type *x1, vec_type *x2, double dt, vec_type *dv1, vec_type *
     (*dv2)[i] = x2v[i+3] - x[i+3];
   }
 
-  // Return the number of iterations required to converge.
-  return iter;
+  // Return 0 if we converged. Return 1 if not.
+  if (iter == max_iter - 1)
+    return 1;
+  else
+    return 0;
 }
 
 
@@ -121,7 +117,7 @@ typedef struct {
 double deltav_cost(unsigned n, const double *x, double *grad, void *data){
   /*The objective function, which returns the total delta-v for a 5-impulse
    transfer.*/
-  int i, j;
+  int i;
   vec_type dv4(3, 0.0), dv5(3, 0.0);
   double cost;
 

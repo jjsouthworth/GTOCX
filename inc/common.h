@@ -121,6 +121,7 @@ class StateVec {
   inline std::vector<double> as_posvel_vector() {
     std::vector<double> tmp = {sv_data[0], sv_data[1], sv_data[2],
                                sv_data[3], sv_data[4], sv_data[5]};
+    return tmp;
   }
 
   void print_state(const std::ostream& stream=std::cout) const {

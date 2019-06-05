@@ -64,18 +64,16 @@ void eqns_of_motion_stm(const vector<double> &x, vector<double> &dxdt, double t)
 	 * State vector 'x' is 42-elements contiaining position (kpc), velocity (kpc/Myr),
 	 * and 36 elements representing the state transition matrix. Output 'dxdt' contains
 	 * velocity, acceleration (kpc/Myr^2) and the derivative of the elements of the STM. */
-
-	double r, r2, vc, kr, dvcdx, dqdx;
-	int i, j, k;
+	STM phi;
+	double r, r2, vc, vc2, kr, kr2, dvcdx, dqdx;
+	int i, j;
 
 	// Populate the velocity and acceleration terms
 	eqns_of_motion(x, dxdt, t);
 
 	// Create a matrix to store the STM.
-	vector<double>::const_iterator first = x.begin() + 6;
-	vector<double>::const_iterator last = x.begin() + 42;
-	vector<double> phi_vec(first, last);
-	Map<STM> phi(phi_vec.data(), 6, 6);
+	for (i=0; i<36; i++)
+		phi(i) = x[i+6];
 
 	// Build the Jacobian of the equations of motion.
 	MatrixXd jacobian = MatrixXd::Zero(6, 6);
@@ -87,16 +85,18 @@ void eqns_of_motion_stm(const vector<double> &x, vector<double> &dxdt, double t)
 	r = sqrt(x[0] * x[0] + x[1] * x[1] + x[2] * x[2]);  // kpc
 	r2 = r*r;
 	kr = _kr(r);
+	kr2 = kr*kr;
 	vc = KM_PER_SEC_TO_KPC_PER_MYR / kr;
+	vc2 = vc*vc;
 
 	for (i=0; i < 3; i++)
 		for (j=0; j < 3; j++)
 		{
-			dvcdx = -KM_PER_SEC_TO_KPC_PER_MYR * _dkdx(r, x[j]) / (kr*kr);
+			dvcdx = -KM_PER_SEC_TO_KPC_PER_MYR * _dkdx(r, x[j]) / kr2;
 			dqdx = (2.0*vc / r2) * (dvcdx - vc*x[j] / r2);
 			jacobian(i+3, j) = -x[i]*dqdx;
 			if (i == j)
-				jacobian(i+3, j) -= vc*vc / r2;
+				jacobian(i+3, j) -= vc2 / r2;
 		}
 
 	// Compute the derivative of the STM.
@@ -104,23 +104,19 @@ void eqns_of_motion_stm(const vector<double> &x, vector<double> &dxdt, double t)
 	phi_dot = jacobian * phi;
 
 	// Insert the elements of the STM derivative into the state vector.
-	for (i=0; i<6; i++)
-		for (j=0; j<6; j++)
-			{
-				k = 6*i + j;
-				dxdt[k+6] = phi_dot(i, j);
-			}
+	for (i=0; i<36; i++)
+		dxdt[i+6] = phi_dot(i);
 }
 
 
 size_t propagate_eom(vec_type *x, double t0, double t1){
-	controlled_runge_kutta < error_stepper > rk78_stepper;
+	auto rk78_stepper = make_controlled<error_stepper>(1.0e-13, 1.0e-13);
 	size_t steps = integrate_adaptive(rk78_stepper, eqns_of_motion, *x, t0, t1, 0.1);
 	return steps;
 }
 
 size_t propagate_eom_stm(vec_type *x, double t0, double t1){
-	controlled_runge_kutta < error_stepper > rk78_stepper;
+		auto rk78_stepper = make_controlled<error_stepper>(1.0e-13, 1.0e-13);
 	size_t steps = integrate_adaptive(rk78_stepper, eqns_of_motion_stm, *x, t0, t1, 0.1);
 	return steps;
 }

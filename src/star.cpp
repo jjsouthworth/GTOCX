@@ -1,4 +1,6 @@
 #include "star.h"
+#include "propagate.h"
+
 
 // Star Class methods
 Star::Star() {
@@ -27,25 +29,23 @@ Star::~Star() {}
 StateVec Star::getState(double t) {
     StateVec starState;
     // intermediate & repeated values
-    double vc = 1 / (K8*pow(R,8) + K7*pow(R,7) + K6*pow(R,6) + K5*pow(R,5)\
-        + K4*pow(R,4) + K3*pow(R,3) + K2*pow(R,2) + K1*R + K0); // (km/s)
-    vc *= ((SEC_PER_YR * YR_PER_MYR) / KM_PER_KPC); // kpc/Myr
+    double vc = KM_PER_SEC_TO_KPC_PER_MYR / _kr(R);  // kpc/Myr
     double n = vc / R; // Myr^-1
     double nt_phi = n*t + phi;
     double c_nt_phi = cos(nt_phi);
     double s_nt_phi = sin(nt_phi);
+    double c_omega = cos(Omega);
+    double s_omega = sin(Omega);
+    double cos_i = cos(i);
+    double sin_i = sin(i);
 
     // populate state
-    starState.set_x(R * (c_nt_phi*cos(Omega) -  \
-        s_nt_phi*cos(i)*sin(Omega))); // kpc
-    starState.set_y(R * (c_nt_phi*sin(Omega) +  \
-        s_nt_phi*cos(i)*cos(Omega))); // kpc
-    starState.set_z(R * (s_nt_phi*sin(i))); //kpc
-    starState.set_vx(vc * (-s_nt_phi*cos(Omega) -   \
-        c_nt_phi*cos(i)*sin(Omega))); // kpc/Myr
-    starState.set_vy(vc * (-s_nt_phi*sin(Omega) +   \
-        c_nt_phi*cos(i)*cos(Omega))); // kpc/Myr
-    starState.set_vz(vc * (c_nt_phi*sin(i))); //kpc/Myr
+    starState.set_x(R * (c_nt_phi*c_omega - s_nt_phi*cos_i*s_omega)); // kpc
+    starState.set_y(R * (c_nt_phi*s_omega +  s_nt_phi*cos_i*c_omega)); // kpc
+    starState.set_z(R * (s_nt_phi*sin_i)); //kpc
+    starState.set_vx(vc * (-s_nt_phi*c_omega - c_nt_phi*cos_i*s_omega)); // kpc/Myr
+    starState.set_vy(vc * (-s_nt_phi*s_omega + c_nt_phi*cos_i*c_omega)); // kpc/Myr
+    starState.set_vz(vc * (c_nt_phi*sin_i));  //kpc/Myr
 
     return starState;
 }
