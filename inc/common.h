@@ -124,7 +124,7 @@ class StateVec {
     return tmp;
   }
 
-  void print_state(const std::ostream& stream=std::cout) const {
+  void print_state(const std::ostream&) const {
     printf("%.3f, %.3f, %.3f, %.6f, %.6f, %.6f\n",sv_data[0], sv_data[1], sv_data[2], sv_data[3], sv_data[4], sv_data[5]);
   }
 
@@ -152,3 +152,18 @@ static const long long KM_PER_KPC = 30856775814671900; // km
 static const double YR_PER_MYR = 1e6; // yr
 static const int SEC_PER_YR = 31557600; // sec
 static const double KM_PER_SEC_TO_KPC_PER_MYR = 1E6*SEC_PER_YR / KM_PER_KPC;
+
+static const double MYRS_BETWEEN_DELTAV = 1.0;
+
+// Define structures that hold information about each ship type.
+typedef struct {
+  int num_impulses;
+  double max_single_impulse;
+  double max_deltav;
+  int num_pods;
+} ship_info;
+
+const ship_info MOTHER_SHIP = {3, 200.0*KM_PER_SEC_TO_KPC_PER_MYR,500.0*KM_PER_SEC_TO_KPC_PER_MYR, 10};
+const ship_info SETTLEMENT_POD = {1, 300.0*KM_PER_SEC_TO_KPC_PER_MYR, 300.0*KM_PER_SEC_TO_KPC_PER_MYR, 0};
+const ship_info FAST_SHIP = {2, 1500.0*KM_PER_SEC_TO_KPC_PER_MYR, 1500.0*KM_PER_SEC_TO_KPC_PER_MYR, 0};
+const ship_info SETTLER_SHIP = {5, 175.0*KM_PER_SEC_TO_KPC_PER_MYR, 400.0*KM_PER_SEC_TO_KPC_PER_MYR, 0};
