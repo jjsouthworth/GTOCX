@@ -12,6 +12,15 @@ project(GTOCX)
 set(GTOCX_VERSION_MAJOR_0)
 set(GTOCX_VERSION_MINOR_1)
 
+# Determine the build type. If none is specified, assume release version.
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug)
+endif()
+
+set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
 # This is a thing that will help with emacs code completion
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -41,13 +50,13 @@ add_compile_options(-std=c++11 -Wall)
 
 # Set up the libgtoc library that executables will link with
 # If you add a source file (.cpp/.cc), add it to the
-include_directories(inc ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} ${NLopt_INCLUDE_DIR})
+include_directories(inc ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} ${NLOPT_INCLUDE_DIR})
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(TEST_DIR ${CMAKE_SOURCE_DIR}/test)
 set(BIN_DIR ${CMAKE_SOURCE_DIR}/bin)
-set(SOURCES ${SOURCE_DIR}/propagate.cpp ${SOURCE_DIR}/star.cpp ${SOURCE_DIR}/vessels.cpp ${SOURCE_DIR}/events.cpp ${SOURCE_DIR}/transfer.cpp)
+set(SOURCES ${SOURCE_DIR}/propagate.cpp ${SOURCE_DIR}/star.cpp ${SOURCE_DIR}/events.cpp ${SOURCE_DIR}/transfer.cpp)
 add_library(gtoc ${SOURCES})
-set(external_link_libraries ${Boost_LIBRARIES})
+set(external_link_libraries ${Boost_LIBRARIES} ${NLOPT_LIBRARIES})
 
 set(EXECUTABLE_OUTPUT_PATH ${BIN_DIR})
 
@@ -62,4 +71,4 @@ add_executable(prop_test ${TEST_DIR}/prop_test.cpp)
 target_link_libraries(prop_test ${external_link_libraries} gtoc)
 
 add_executable(transfer_test ${CMAKE_SOURCE_DIR}/test/transfer_test.cpp)
-target_link_libraries(transfer_test ${external_link_libraries} gtoc)
+target_link_libraries(transfer_test ${external_link_libraries} gtoc nlopt)

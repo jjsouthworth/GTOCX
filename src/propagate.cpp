@@ -36,7 +36,7 @@ double _dkdx(double r, double x)
 }
 
 
-void eqns_of_motion(const vector<double> &x, vector<double> &dxdt, double t)
+void eqns_of_motion(const vector<double> &x, vector<double> &dxdt, double)
 {
 	/* Central-Force equations of motion for galactic motion.
 	 * State vector 'x' is 6-elements containing position (kpc) and velocity (kpc/Myr)
@@ -110,13 +110,13 @@ void eqns_of_motion_stm(const vector<double> &x, vector<double> &dxdt, double t)
 
 
 size_t propagate_eom(vec_type *x, double t0, double t1){
-	auto rk78_stepper = make_controlled<error_stepper>(1.0e-13, 1.0e-13);
+	auto rk78_stepper = make_controlled<error_stepper>(1.0e-10, 1.0e-10);
 	size_t steps = integrate_adaptive(rk78_stepper, eqns_of_motion, *x, t0, t1, 0.1);
 	return steps;
 }
 
 size_t propagate_eom_stm(vec_type *x, double t0, double t1){
-		auto rk78_stepper = make_controlled<error_stepper>(1.0e-13, 1.0e-13);
+		auto rk78_stepper = make_controlled<error_stepper>(1.0e-10, 1.0e-10);
 	size_t steps = integrate_adaptive(rk78_stepper, eqns_of_motion_stm, *x, t0, t1, 0.1);
 	return steps;
 }

@@ -18,6 +18,7 @@ int main(){
   double t1 = 10.0;
   double dv_total = 0.0;
   vector<double> dv1(3, 0.0), dv2(3, 0.0);
+  int index;
 
   // Load all stars.
   Galaxy galaxy;
@@ -28,11 +29,12 @@ int main(){
   // Build transfers from Sol to all other stars.
   cout <<"\nBuilding transfers from t=" << t0 << " Myrs to t=" << t1 << " MYrs." << endl;
   sol = galaxy.starVec[0];
-  for (uint i=1; i < galaxy.starVec.size(); ++i){
-    star = galaxy.starVec[i];
+  for (uint i=1; i < 10; ++i){
+    index = rand() % (NUM_STARS - 1) + 1;
+    star = galaxy.starVec[index];
     two_impulse_transfer(&sol, 0.0, &star, 10.0, &dv1, &dv2);
     dv_total = norm(dv1) + norm(dv2);
-    printf("  Sol -> Star %d:\n dV = %f kpc/Myr\n dV1 = %.6f, %.6f, %.6f kpc/Myr \
+    printf("Sol -> Star %d:\n dV = %f kpc/Myr\n dV1 = %.6f, %.6f, %.6f kpc/Myr \
               \n dV2 = %.6f, %.6f, %.6f kpc/Myr\n\n",
            i, dv_total, dv1[0], dv1[1], dv1[2], dv2[0], dv2[1], dv2[2]);
   }

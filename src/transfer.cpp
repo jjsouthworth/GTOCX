@@ -1,6 +1,6 @@
+
 #include "common.h"
 #include "star.h"
-#include "vessels.h"
 #include "propagate.h"
 #include <nlopt.hpp>
 #include <vector>
@@ -111,10 +111,11 @@ void two_impulse_transfer(Star *star1, double t1, Star *star2, double t2, vec_ty
 typedef struct {
   double ti, tf;
   vec_type *xi, *xf;
+  ship_info ship;
 } transfer_data;
 
 
-double deltav_cost(unsigned n, const double *x, double *grad, void *data){
+double deltav_cost(const vec_type &x, vec_type &grad, void *data){
   /*The objective function, which returns the total delta-v for a 5-impulse
    transfer.*/
   int i;
@@ -149,8 +150,6 @@ double deltav_cost(unsigned n, const double *x, double *grad, void *data){
   // Now build a two-impulse transfer from time of fourth maneuver to final position.
   two_impulse_transfer(&x_vec, t4, d->xf, d->tf, &dv4, &dv5);
 
-  // TODO: Compute Gradient!!!
-
   vector<vec_type> all_dvs{ dv1, dv2, dv3, dv4, dv5 };
   for(auto dv : all_dvs)
     cost += dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2];
@@ -159,16 +158,87 @@ double deltav_cost(unsigned n, const double *x, double *grad, void *data){
 
 }
 
-void build_settler_ship_transfer(Star *star1, double t1, Star *star2, double t2, vec_type *dv1, vec_type *dv2){
+
+void settler_ship_constraints(unsigned m, double *result, unsigned n, const double *x, double *grad, void* data){
+  /*The vector inequality constraint function. Enforces time between
+    maneuvers and max delta-v per impulse. */
+  double dv1_sq = pow(x[0], 2.0) + pow(x[1], 2.0) + pow(x[2], 2.0);
+  double dv3_sq = pow(x[6], 2.0) + pow(x[7], 2.0) + pow(x[8], 2.0);
+  double dv2_sq = pow(x[3], 2.0) + pow(x[4], 2.0) + pow(x[5], 2.0);
+
+  // Type cast transfer data to it's actual type.
+  transfer_data *d = (transfer_data *) data;
+
+  // The first three constraints are that delta-v's do not exceed the max.
+  result[0] = dv1_sq - pow(d->ship.max_single_impulse, 2);
+  result[1] = dv2_sq - pow(d->ship.max_single_impulse, 2);
+  result[2] = dv3_sq - pow(d->ship.max_single_impulse, 2);
+
+  // Ensure that the transfer times are sequential and spaced by 1 Myrs.
+  result[3] = x[10] - x[11] + MYRS_BETWEEN_DELTAV;
+  result[4] = x[9] - x[10] + MYRS_BETWEEN_DELTAV;
+
+  //TODO: Add Gradient.
+  return;
+}
+
+
+int build_settler_ship_transfer(Star *star1, double t1, Star *star2, double t2, vec_type *dv1, vec_type *dv2){
   /*Build an optimal transfer between two stars for a Settler ship while
   meeting all of it's constraints.*/
+  vec_type initial_conditions(12);
+  double optimal_func_value;
+  vec_type xi = (*star1).getState(t1).as_posvel_vector();
+  vec_type xf = (*star2).getState(t2).as_posvel_vector();
 
-  // Create an instance of a Settler Ship so we have access to the constraints.
-  // StateVec sv;
-  // SettlerShip ship = SettlerShip(sv);
+  // Define the transfer data needed by the optimizer.
+  transfer_data data;
+  data.ti = t1;
+  data.tf = t2;
+  data.xi = &xi;
+  data.xf = &xf;
+  data.ship = SETTLER_SHIP;
+  // Generate the optimizer.
+  // The state vector will be [dV1, dV2, dV3, t2, t3, t4] (12-elements)
+  auto optimizer = nlopt::opt(nlopt::LN_COBYLA , 12);
+  optimizer.set_min_objective(deltav_cost, &data);
 
-  // Create a two-impulse transfer from Star 1 to Star 2. Ignore constraints.
+  // Define upper and lower bounds for all variables.
+  vec_type lb(12, -SETTLER_SHIP.max_single_impulse);
+  lb[9] = t1 + MYRS_BETWEEN_DELTAV;
+  lb[10] = t1 + MYRS_BETWEEN_DELTAV;
+  lb[11] = t1 + MYRS_BETWEEN_DELTAV;
+  optimizer.set_lower_bounds(lb);
+
+  vec_type ub(12, SETTLER_SHIP.max_single_impulse);
+  ub[9] = t2 - MYRS_BETWEEN_DELTAV;
+  ub[10] = t2 - MYRS_BETWEEN_DELTAV;
+  ub[11] = t2 - MYRS_BETWEEN_DELTAV;
+  optimizer.set_upper_bounds(ub);
+
+  // Define inequality constraint function.
+  vec_type constraint_tol(2, 1e-13);
+  optimizer.add_inequality_mconstraint(settler_ship_constraints, (void*)&data, constraint_tol);
+
+  // Set the stopping criteria.
+  optimizer.set_stopval(0.0);
+  optimizer.set_ftol_rel(1e-10);
+  optimizer.set_ftol_abs(1e-10);
+  optimizer.set_xtol_rel(1e-10);
+  optimizer.set_xtol_abs(1e-10);
+  // optimizer.set_maxeval(1000);
+  // optimizer.set_maxtime(60.0); // seconds
+
+  // Create initial conditions.
   two_impulse_transfer(star1, t1, star2, t2, dv1, dv2);
 
+  // Call the optimizer.
+  nlopt::result status = optimizer.optimize(initial_conditions, optimal_func_value);
 
+  cout << "The result is" << endl;
+	cout << status << endl;
+	cout << "Minimal function value " << optimal_func_value << endl;
+
+  // Return based on the optimizer return value.
+  return (int)status;
 }
