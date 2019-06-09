@@ -1,5 +1,5 @@
-
 #include "common.h"
+#include "transfer.h"
 #include "star.h"
 #include "propagate.h"
 #include <nlopt.hpp>
@@ -14,6 +14,15 @@ typedef std::vector<double> vec_type;
 typedef Eigen::Matrix<double, 6, 6> STM;
 typedef Eigen::Matrix<double, 3, 3> SubSTM;
 
+// A struct that contains extra data needed to compute NLOPT objective functions.
+typedef struct {
+  const double ti, tf;
+  const vec_type *xi, *xf;
+  const ship_info *ship;
+} transfer_data;
+
+
+// Define functions that are used to build transfers.
 int eom_shooter(vec_type *x1, vec_type *x2, double dt, vec_type *dv1, vec_type *dv2, double tol = 1e-13){
   /*Compute the two delta-v's for transfering from R1 to R2 with
   transfer time dt.*/
@@ -91,36 +100,46 @@ int eom_shooter(vec_type *x1, vec_type *x2, double dt, vec_type *dv1, vec_type *
 }
 
 
-void two_impulse_transfer(StateVec *x1, double t1, StateVec *x2, double t2, vec_type *dv1, vec_type *dv2){
-  vec_type x1_vec = x1->as_posvel_vector();
-  vec_type x2_vec = x2->as_posvel_vector();
-  eom_shooter(&x1_vec, &x2_vec, t2 - t1, dv1, dv2);
-}
-
 void two_impulse_transfer(vec_type *x1, double t1, vec_type *x2, double t2, vec_type *dv1, vec_type *dv2){
     eom_shooter(x1, x2, t2 - t1, dv1, dv2);
 }
 
-void two_impulse_transfer(Star *star1, double t1, Star *star2, double t2, vec_type *dv1, vec_type *dv2){
-    StateVec x1_sv = star1->getState(t1);
-    StateVec x2_sv = star2->getState(t1);
-    two_impulse_transfer(&x1_sv, t1, &x2_sv, t2, dv1, dv2);
+void two_impulse_transfer(StateVec *x1, double t1, StateVec *x2, double t2, DeltaV *dv1, DeltaV *dv2){
+  vec_type x1_vec = x1->as_posvel_vector();
+  vec_type x2_vec = x2->as_posvel_vector();
+  vec_type dv1_vec = dv1->get_vector();
+  vec_type dv2_vec = dv2->get_vector();
+  // Run the shooter, then re-assign discovered values.
+  eom_shooter(&x1_vec, &x2_vec, t2 - t1, &dv1_vec, &dv2_vec);
+  dv1->set_from_vector(dv1_vec);
+  dv2->set_from_vector(dv2_vec);
 }
 
-// A struct that contains extra data needed to compute the objective function.
-typedef struct {
-  double ti, tf;
-  vec_type *xi, *xf;
-  ship_info ship;
-} transfer_data;
+void two_impulse_transfer(StateVec *x1, double t1, StateVec *x2, double t2, vec_type *dv1, vec_type *dv2){
+  vec_type x1_vec = x1->as_posvel_vector();
+  vec_type x2_vec = x2->as_posvel_vector();
+  // Run the shooter, then re-assign discovered values.
+  eom_shooter(&x1_vec, &x2_vec, t2 - t1, dv1, dv2);
+}
 
+void two_impulse_transfer(Star *star1, double t1, Star *star2, double t2, vec_type *dv1, vec_type *dv2){
+  StateVec x1_sv = star1->getState(t1);
+  StateVec x2_sv = star2->getState(t1);
+  two_impulse_transfer(&x1_sv, t1, &x2_sv, t2, dv1, dv2);
+}
 
-double deltav_cost(const vec_type &x, vec_type &grad, void *data){
-  /*The objective function, which returns the total delta-v for a 5-impulse
-   transfer.*/
-  int i;
+void two_impulse_transfer(Star *star1, double t1, Star *star2, double t2, DeltaV *dv1, DeltaV *dv2){
+    StateVec x1_sv = star1->getState(t1);
+    StateVec x2_sv = star2->getState(t1);
+    vec_type dv1_vec = dv1->get_vector();
+    vec_type dv2_vec = dv2->get_vector();
+    two_impulse_transfer(&x1_sv, t1, &x2_sv, t2, &dv1_vec, &dv2_vec);
+}
+
+const vector<vec_type> _nlopt_build_transfer(const vec_type *state_vec, transfer_data *data){
+  uint i;
   vec_type dv4(3, 0.0), dv5(3, 0.0);
-  double cost;
+  const vec_type& x = *state_vec;
 
   vec_type dv1 = { x[0], x[1], x[2] };
   vec_type dv2 = { x[3], x[4], x[5] };
@@ -129,14 +148,11 @@ double deltav_cost(const vec_type &x, vec_type &grad, void *data){
   double t3 = x[10];
   double t4 = x[11];
 
-  // Type cast transfer data to it's actual type.
-  transfer_data *d = (transfer_data *) data;
-
   // Propagate the first leg of the trajectory.
-  vec_type x_vec((*d->xi));  // Create a vector with initial state.
+  vec_type x_vec = (*data->xi);  // Create a vector with initial state.
   for (i=0; i<3; i++)
     x_vec[i+3] += dv1[i];
-  propagate_eom(&x_vec, d->ti, t2);
+  propagate_eom(&x_vec, data->ti, t2);
 
   // Repeat for the second and third legs.
   for (i=0; i<3; i++)
@@ -148,18 +164,33 @@ double deltav_cost(const vec_type &x, vec_type &grad, void *data){
   propagate_eom(&x_vec, t3, t4);
 
   // Now build a two-impulse transfer from time of fourth maneuver to final position.
-  two_impulse_transfer(&x_vec, t4, d->xf, d->tf, &dv4, &dv5);
+  vec_type xf = (*data->xf);
+  two_impulse_transfer(&x_vec, t4, &xf, data->tf, &dv4, &dv5);
 
-  vector<vec_type> all_dvs{ dv1, dv2, dv3, dv4, dv5 };
+  const vector<vec_type> all_dvs = { dv1, dv2, dv3, dv4, dv5 };
+  return all_dvs;
+}
+
+double _nlopt_cost(const vec_type &x, vec_type &, void *data){
+  /*The objective function, which returns the total delta-v for a 5-impulse
+   transfer.*/
+  double cost = 0.0;
+
+  // Type cast transfer data to it's actual type.
+  transfer_data *d = (transfer_data *) data;
+
+  // Construct the delta-v's from the state vector.
+  const vector<vec_type> all_dvs = _nlopt_build_transfer(&x, d);
+
+  // Sum the cost.
   for(auto dv : all_dvs)
     cost += dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2];
 
   return cost;
-
 }
 
 
-void settler_ship_constraints(unsigned m, double *result, unsigned n, const double *x, double *grad, void* data){
+void _nlopt_constraints(unsigned, double *result, unsigned, const double *x, double *, void* data){
   /*The vector inequality constraint function. Enforces time between
     maneuvers and max delta-v per impulse. */
   double dv1_sq = pow(x[0], 2.0) + pow(x[1], 2.0) + pow(x[2], 2.0);
@@ -170,9 +201,9 @@ void settler_ship_constraints(unsigned m, double *result, unsigned n, const doub
   transfer_data *d = (transfer_data *) data;
 
   // The first three constraints are that delta-v's do not exceed the max.
-  result[0] = dv1_sq - pow(d->ship.max_single_impulse, 2);
-  result[1] = dv2_sq - pow(d->ship.max_single_impulse, 2);
-  result[2] = dv3_sq - pow(d->ship.max_single_impulse, 2);
+  result[0] = dv1_sq - pow(d->ship->max_single_impulse, 2);
+  result[1] = dv2_sq - pow(d->ship->max_single_impulse, 2);
+  result[2] = dv3_sq - pow(d->ship->max_single_impulse, 2);
 
   // Ensure that the transfer times are sequential and spaced by 1 Myrs.
   result[3] = x[10] - x[11] + MYRS_BETWEEN_DELTAV;
@@ -183,34 +214,156 @@ void settler_ship_constraints(unsigned m, double *result, unsigned n, const doub
 }
 
 
-int build_settler_ship_transfer(Star *star1, double t1, Star *star2, double t2, vec_type *dv1, vec_type *dv2){
+// Define the DeltaV class's member functions.
+DeltaV::DeltaV(double t, double dvx, double dvy, double dvz) {
+  this->t = t;
+  this->dvx = dvx;
+  this->dvy = dvy;
+  this->dvz = dvz;
+}
+
+double& DeltaV::operator[](const int index) {
+  if (index == 0) { return dvx; }
+  if (index == 1) { return dvy; }
+  if (index == 2) { return dvz; }
+  throw "DeltaV objects only have 3 indices.";
+}
+
+void DeltaV::set_from_vector(vec_type dv_vec) {
+  if (dv_vec.size() != 3)
+    throw "Vector to set delta-v is not 3 elements long.";
+
+  this->dvx = dv_vec[0];
+  this->dvy = dv_vec[1];
+  this->dvz = dv_vec[2];
+}
+
+void DeltaV::set_values(double t, double dvx, double dvy, double dvz) {
+  this->t = t;
+  this->dvx = dvx;
+  this->dvy = dvy;
+  this->dvz = dvz;
+}
+
+void DeltaV::set_time(double t) { this-> t = t; }
+vec_type DeltaV::get_vector() {
+  vec_type x = { dvx, dvy, dvz };
+  return x;
+}
+double DeltaV::get_time() { return t; }
+double DeltaV::mag() { return sqrt(dvx*dvx + dvy*dvy + dvz*dvz);  }
+
+// Define the Transfer class's member functions.
+Transfer::Transfer(ship_info ship){
+  this->ship = &ship;
+  this->deltavs = vector<DeltaV>(ship.num_impulses, DeltaV());
+}
+
+double Transfer::total_deltav() {
+  double cost = 0.0;
+  for (auto dv : deltavs)
+    cost += dv.mag();
+  return cost;
+}
+
+bool Transfer::_check_common_constraints() {
+  if (!constructed) { return false; } // Check that transfer was constructed.
+
+  // Check that we don't exceed the max number of maneuvers.
+  if (deltavs.size() > (uint)ship->num_impulses) { return false; }
+  // Check that no delta-v's exceed the max impulse or falls outside the simulation..
+  for (auto dv : deltavs) {
+    if (dv.mag() > ship->max_single_impulse) { return false; }
+    if (dv.get_time() > 90.0) { return false; }
+    if (dv.get_time() < 0.0) { return false; }
+  }
+  // Check that the total delta-v does not exceed the max.
+  if (this->total_deltav() > ship->max_deltav) { return false; }
+  //Check that maneuvers are spaced by 1 Myrs.
+  for (uint i=0; i < deltavs.size(); i++)
+    for (uint j=0;  j < deltavs.size(); j++) {
+      if (i >= j)
+        continue;
+      if ( abs(deltavs[i].get_time() - deltavs[j].get_time()) < MYRS_BETWEEN_DELTAV)
+        return false;
+    }
+  return true;  // If nothing trips false, maneuvers are valid.
+}
+
+void Transfer::reset_transfer() {
+  for (auto dv : deltavs)
+    dv.set_values();
+  constructed = false;
+}
+
+
+// Define the Settler Ship class's member functions.
+SettlerShipTransfer::SettlerShipTransfer(Star &star1, Star &star2)
+: Transfer(SETTLER_SHIP){
+this->star1 = &star1;
+this->star2 = &star2;
+}
+
+void SettlerShipTransfer::print_transfer() {
+  if (!valid_transfer())
+    printf("INVALID TRANSFER.\n");
+
+  uint i = 1;
+  for (DeltaV dv : deltavs){
+    printf("  t%d = %f    DV%d: %f, %f, %f kpc/Myr\n", \
+           i, dv.get_time(), i, dv[0], dv[1], dv[2]);
+    i++;
+  }
+  printf("Delta-V Total: %f\n", total_deltav());
+}
+
+bool SettlerShipTransfer::valid_transfer() { return this->_check_common_constraints(); }
+
+void SettlerShipTransfer::two_impulse_transfer(double t1, double t2) {
+  vec_type dv1_vec, dv2_vec;
+
+  // Reset any data from currently stored transfers.
+  reset_transfer();
+
+  ::two_impulse_transfer(star1, t1, star2, t2, &dv1_vec, &dv2_vec);
+  deltavs[0].set_from_vector(dv1_vec);
+  deltavs[0].set_time(t1);
+  deltavs.back().set_from_vector(dv2_vec);
+  deltavs.back().set_time(t2);
+}
+
+void SettlerShipTransfer::optimal_two_impulse_transfer(double t1, double max_transfer_time) {
+  // Reset any data from currently stored transfers.
+  reset_transfer();
+}
+
+void SettlerShipTransfer::optimal_five_impulse_transfer(double t1, double t2) {
   /*Build an optimal transfer between two stars for a Settler ship while
   meeting all of it's constraints.*/
   vec_type initial_conditions(12);
   double optimal_func_value;
-  vec_type xi = (*star1).getState(t1).as_posvel_vector();
-  vec_type xf = (*star2).getState(t2).as_posvel_vector();
+  const vec_type xi = (*star1).getState(t1).as_posvel_vector();
+  const vec_type xf = (*star2).getState(t2).as_posvel_vector();
+
+  // Reset any data from currently stored transfers.
+  reset_transfer();
 
   // Define the transfer data needed by the optimizer.
-  transfer_data data;
-  data.ti = t1;
-  data.tf = t2;
-  data.xi = &xi;
-  data.xf = &xf;
-  data.ship = SETTLER_SHIP;
+  transfer_data data = { t1, t2, &xi, &xf, this->ship };
+
   // Generate the optimizer.
   // The state vector will be [dV1, dV2, dV3, t2, t3, t4] (12-elements)
   auto optimizer = nlopt::opt(nlopt::LN_COBYLA , 12);
-  optimizer.set_min_objective(deltav_cost, &data);
+  optimizer.set_min_objective(::_nlopt_cost, &data);
 
   // Define upper and lower bounds for all variables.
-  vec_type lb(12, -SETTLER_SHIP.max_single_impulse);
+  vec_type lb(12, -ship->max_single_impulse);
   lb[9] = t1 + MYRS_BETWEEN_DELTAV;
   lb[10] = t1 + MYRS_BETWEEN_DELTAV;
   lb[11] = t1 + MYRS_BETWEEN_DELTAV;
   optimizer.set_lower_bounds(lb);
 
-  vec_type ub(12, SETTLER_SHIP.max_single_impulse);
+  vec_type ub(12, ship->max_single_impulse);
   ub[9] = t2 - MYRS_BETWEEN_DELTAV;
   ub[10] = t2 - MYRS_BETWEEN_DELTAV;
   ub[11] = t2 - MYRS_BETWEEN_DELTAV;
@@ -218,7 +371,7 @@ int build_settler_ship_transfer(Star *star1, double t1, Star *star2, double t2, 
 
   // Define inequality constraint function.
   vec_type constraint_tol(2, 1e-13);
-  optimizer.add_inequality_mconstraint(settler_ship_constraints, (void*)&data, constraint_tol);
+  optimizer.add_inequality_mconstraint(::_nlopt_constraints, (void*)&data, constraint_tol);
 
   // Set the stopping criteria.
   optimizer.set_stopval(0.0);
@@ -226,11 +379,12 @@ int build_settler_ship_transfer(Star *star1, double t1, Star *star2, double t2, 
   optimizer.set_ftol_abs(1e-10);
   optimizer.set_xtol_rel(1e-10);
   optimizer.set_xtol_abs(1e-10);
-  // optimizer.set_maxeval(1000);
-  // optimizer.set_maxtime(60.0); // seconds
+  optimizer.set_maxeval(1000);
+  optimizer.set_maxtime(60.0); // seconds
 
   // Create initial conditions.
-  two_impulse_transfer(star1, t1, star2, t2, dv1, dv2);
+  vec_type dv1(3, 0.0), dv2(3, 0.0);
+  ::two_impulse_transfer(star1, t1, star2, t2, &dv1, &dv2);
 
   // Call the optimizer.
   nlopt::result status = optimizer.optimize(initial_conditions, optimal_func_value);
@@ -238,7 +392,53 @@ int build_settler_ship_transfer(Star *star1, double t1, Star *star2, double t2, 
   cout << "The result is" << endl;
 	cout << status << endl;
 	cout << "Minimal function value " << optimal_func_value << endl;
+}
 
-  // Return based on the optimizer return value.
-  return (int)status;
+
+// Define the Fast Ship class's member functions.
+FastShipTransfer::FastShipTransfer(Star &star1, Star &star2) :
+Transfer(FAST_SHIP) {
+  this->star1 = &star1;
+  this->star2 = &star2;
+}
+
+bool FastShipTransfer::valid_transfer() { return this->_check_common_constraints(); }
+
+void FastShipTransfer::print_transfer() {
+  if (!valid_transfer())
+    printf("INVALID TRANSFER.\n");
+
+  uint i = 1;
+  for (DeltaV dv : deltavs){
+    printf("  t%d = %f    DV%d: %f, %f, %f kpc/Myr\n", \
+           i, dv.get_time(), i, dv[0], dv[1], dv[2]);
+    i++;
+  }
+  printf("Delta-V Total: %f\n", total_deltav());
+}
+
+void FastShipTransfer::two_impulse_transfer(double t1, double t2) {
+  // Reset any data from currently stored transfers.
+  reset_transfer();
+
+  DeltaV& dv1 = deltavs[0];
+  DeltaV& dv2 = deltavs.back();
+
+  dv1.set_time(t1);
+  dv2.set_time(t2);
+  ::two_impulse_transfer(star1, t1, star2, t2, &dv1, &dv2);
+}
+
+void FastShipTransfer::optimal_two_impulse_transfer(double t1, double max_transfer_time) {}
+
+// Define the Mother Ship class's member functions.
+MotherShipTransfer::MotherShipTransfer() : Transfer(MOTHER_SHIP){
+}
+
+void MotherShipTransfer::print_transfer() { printf("Implement me...\n"); }
+
+bool MotherShipTransfer::valid_transfer() {
+  if (!this->_check_common_constraints()) { return false; }
+  // ADD ADDITIONAL VALIDITY CHECKS.
+  return true;
 }

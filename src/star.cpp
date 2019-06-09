@@ -57,6 +57,14 @@ Galaxy::Galaxy() {
 }
 Galaxy::~Galaxy() {}
 
+Star &Galaxy::operator[](int index) {
+  if (index >= (int)starVec.size()){
+    std::cout << "Galaxy index out of bounds. Exiting.";
+    exit(1);
+  }
+  return starVec[index];
+}
+
 void Galaxy::loadStars(std::string filename) {
     // vars
     std::ifstream infile;

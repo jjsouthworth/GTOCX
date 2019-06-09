@@ -39,10 +39,13 @@ public:
     std::vector<Star> starVec;
     std::vector<bool> settled;
 
+    // operators
+    Star &operator[] (int);
+
     // member functions
     void loadStars(std::string filename);
+
 };
 
 // non-member functions
 void printStar(Star star);
-
