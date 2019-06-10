@@ -1,3 +1,4 @@
+#include "common.h"
 #include "transfer.h"
 #include "star.h"
 #include <vector>
@@ -13,6 +14,9 @@ int main(){
   double t0 = 0.0;
   double t1 = 10.0;
   int i1, i2;
+
+  // Set the random number generator seed to the current time.
+  srand(time(NULL));
 
   // Load all stars.
   Galaxy galaxy;

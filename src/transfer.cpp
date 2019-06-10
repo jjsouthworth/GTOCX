@@ -18,7 +18,7 @@ typedef Eigen::Matrix<double, 3, 3> SubSTM;
 typedef struct {
   const double ti, tf;
   const vec_type *xi, *xf;
-  const ship_info *ship;
+  ship_info ship;
 } transfer_data;
 
 
@@ -133,7 +133,11 @@ void two_impulse_transfer(Star *star1, double t1, Star *star2, double t2, DeltaV
     StateVec x2_sv = star2->getState(t1);
     vec_type dv1_vec = dv1->get_vector();
     vec_type dv2_vec = dv2->get_vector();
+
+    // Compute transfer and reassign variables.
     two_impulse_transfer(&x1_sv, t1, &x2_sv, t2, &dv1_vec, &dv2_vec);
+    dv1->set_from_vector(dv1_vec);
+    dv2->set_from_vector(dv2_vec);
 }
 
 const vector<vec_type> _nlopt_build_transfer(const vec_type *state_vec, transfer_data *data){
@@ -201,9 +205,9 @@ void _nlopt_constraints(unsigned, double *result, unsigned, const double *x, dou
   transfer_data *d = (transfer_data *) data;
 
   // The first three constraints are that delta-v's do not exceed the max.
-  result[0] = dv1_sq - pow(d->ship->max_single_impulse, 2);
-  result[1] = dv2_sq - pow(d->ship->max_single_impulse, 2);
-  result[2] = dv3_sq - pow(d->ship->max_single_impulse, 2);
+  result[0] = dv1_sq - pow(d->ship.max_single_impulse, 2);
+  result[1] = dv2_sq - pow(d->ship.max_single_impulse, 2);
+  result[2] = dv3_sq - pow(d->ship.max_single_impulse, 2);
 
   // Ensure that the transfer times are sequential and spaced by 1 Myrs.
   result[3] = x[10] - x[11] + MYRS_BETWEEN_DELTAV;
@@ -254,8 +258,7 @@ double DeltaV::get_time() { return t; }
 double DeltaV::mag() { return sqrt(dvx*dvx + dvy*dvy + dvz*dvz);  }
 
 // Define the Transfer class's member functions.
-Transfer::Transfer(ship_info ship){
-  this->ship = &ship;
+Transfer::Transfer(const ship_info &ship_type):ship(ship_type){
   this->deltavs = vector<DeltaV>(ship.num_impulses, DeltaV());
 }
 
@@ -270,15 +273,19 @@ bool Transfer::_check_common_constraints() {
   if (!constructed) { return false; } // Check that transfer was constructed.
 
   // Check that we don't exceed the max number of maneuvers.
-  if (deltavs.size() > (uint)ship->num_impulses) { return false; }
+  if (deltavs.size() > (uint)ship.num_impulses) { return false; }
+
   // Check that no delta-v's exceed the max impulse or falls outside the simulation..
   for (auto dv : deltavs) {
-    if (dv.mag() > ship->max_single_impulse) { return false; }
+    printf("dv mag: %f, max = %f\n", dv.mag(), ship.max_single_impulse);
+    if (dv.mag() > ship.max_single_impulse) { return false; }
     if (dv.get_time() > 90.0) { return false; }
     if (dv.get_time() < 0.0) { return false; }
   }
+
   // Check that the total delta-v does not exceed the max.
-  if (this->total_deltav() > ship->max_deltav) { return false; }
+  if (this->total_deltav() > ship.max_deltav) { return false; }
+
   //Check that maneuvers are spaced by 1 Myrs.
   for (uint i=0; i < deltavs.size(); i++)
     for (uint j=0;  j < deltavs.size(); j++) {
@@ -305,36 +312,37 @@ this->star2 = &star2;
 }
 
 void SettlerShipTransfer::print_transfer() {
-  if (!valid_transfer())
-    printf("INVALID TRANSFER.\n");
-
   uint i = 1;
   for (DeltaV dv : deltavs){
     printf("  t%d = %f    DV%d: %f, %f, %f kpc/Myr\n", \
            i, dv.get_time(), i, dv[0], dv[1], dv[2]);
     i++;
   }
-  printf("Delta-V Total: %f\n", total_deltav());
+  printf("Delta-V Total: %f\t(max = %f)\n", total_deltav(), ship.max_deltav);
+
+  if (!valid_transfer())
+    printf("INVALID TRANSFER!\n");
 }
 
 bool SettlerShipTransfer::valid_transfer() { return this->_check_common_constraints(); }
 
 void SettlerShipTransfer::two_impulse_transfer(double t1, double t2) {
-  vec_type dv1_vec, dv2_vec;
-
   // Reset any data from currently stored transfers.
   reset_transfer();
 
-  ::two_impulse_transfer(star1, t1, star2, t2, &dv1_vec, &dv2_vec);
-  deltavs[0].set_from_vector(dv1_vec);
-  deltavs[0].set_time(t1);
-  deltavs.back().set_from_vector(dv2_vec);
-  deltavs.back().set_time(t2);
+  DeltaV& dv1 = deltavs[0];
+  DeltaV& dv2 = deltavs.back();
+
+  ::two_impulse_transfer(star1, t1, star2, t2, &dv1, &dv2);
+
+  constructed = true;
 }
 
 void SettlerShipTransfer::optimal_two_impulse_transfer(double t1, double max_transfer_time) {
   // Reset any data from currently stored transfers.
   reset_transfer();
+
+  constructed = true;
 }
 
 void SettlerShipTransfer::optimal_five_impulse_transfer(double t1, double t2) {
@@ -357,13 +365,13 @@ void SettlerShipTransfer::optimal_five_impulse_transfer(double t1, double t2) {
   optimizer.set_min_objective(::_nlopt_cost, &data);
 
   // Define upper and lower bounds for all variables.
-  vec_type lb(12, -ship->max_single_impulse);
+  vec_type lb(12, -ship.max_single_impulse);
   lb[9] = t1 + MYRS_BETWEEN_DELTAV;
   lb[10] = t1 + MYRS_BETWEEN_DELTAV;
   lb[11] = t1 + MYRS_BETWEEN_DELTAV;
   optimizer.set_lower_bounds(lb);
 
-  vec_type ub(12, ship->max_single_impulse);
+  vec_type ub(12, ship.max_single_impulse);
   ub[9] = t2 - MYRS_BETWEEN_DELTAV;
   ub[10] = t2 - MYRS_BETWEEN_DELTAV;
   ub[11] = t2 - MYRS_BETWEEN_DELTAV;
@@ -392,6 +400,8 @@ void SettlerShipTransfer::optimal_five_impulse_transfer(double t1, double t2) {
   cout << "The result is" << endl;
 	cout << status << endl;
 	cout << "Minimal function value " << optimal_func_value << endl;
+
+  constructed = true;
 }
 
 
@@ -405,16 +415,16 @@ Transfer(FAST_SHIP) {
 bool FastShipTransfer::valid_transfer() { return this->_check_common_constraints(); }
 
 void FastShipTransfer::print_transfer() {
-  if (!valid_transfer())
-    printf("INVALID TRANSFER.\n");
-
   uint i = 1;
   for (DeltaV dv : deltavs){
     printf("  t%d = %f    DV%d: %f, %f, %f kpc/Myr\n", \
            i, dv.get_time(), i, dv[0], dv[1], dv[2]);
     i++;
   }
-  printf("Delta-V Total: %f\n", total_deltav());
+  printf("Delta-V Total: %f\t(max = %f)\n", total_deltav(), ship.max_deltav);
+
+  if (!valid_transfer())
+    printf("INVALID TRANSFER!\n");
 }
 
 void FastShipTransfer::two_impulse_transfer(double t1, double t2) {
@@ -427,9 +437,16 @@ void FastShipTransfer::two_impulse_transfer(double t1, double t2) {
   dv1.set_time(t1);
   dv2.set_time(t2);
   ::two_impulse_transfer(star1, t1, star2, t2, &dv1, &dv2);
+
+  constructed = true;
 }
 
-void FastShipTransfer::optimal_two_impulse_transfer(double t1, double max_transfer_time) {}
+void FastShipTransfer::optimal_two_impulse_transfer(double t1, double max_transfer_time) {
+  // Reset any data from currently stored transfers.
+  reset_transfer();
+
+  constructed = true;
+}
 
 // Define the Mother Ship class's member functions.
 MotherShipTransfer::MotherShipTransfer() : Transfer(MOTHER_SHIP){

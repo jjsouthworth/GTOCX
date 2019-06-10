@@ -7,6 +7,7 @@ typedef std::vector<double> vec_type;
 
 class DeltaV {
 public:
+
   DeltaV(double t=0.0, double dvx=0.0, double dvy=0.0, double dvz=0.0);
 
   double& operator[] (const int index);
@@ -24,7 +25,7 @@ protected:
 
 class Transfer {
 public:
-  Transfer(ship_info ship);
+  Transfer(const ship_info &ship_type);
   void reset_transfer();
   double total_deltav();
   virtual void print_transfer() { };
@@ -32,7 +33,7 @@ public:
 protected:
   std::vector<DeltaV> deltavs;
   bool constructed;
-  const ship_info *ship;
+  ship_info ship;
   bool _check_common_constraints();
 };
 
