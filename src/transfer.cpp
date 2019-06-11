@@ -197,21 +197,29 @@ double _nlopt_cost(const vec_type &x, vec_type &, void *data){
 void _nlopt_constraints(unsigned, double *result, unsigned, const double *x, double *, void* data){
   /*The vector inequality constraint function. Enforces time between
     maneuvers and max delta-v per impulse. */
-  double dv1_sq = pow(x[0], 2.0) + pow(x[1], 2.0) + pow(x[2], 2.0);
-  double dv3_sq = pow(x[6], 2.0) + pow(x[7], 2.0) + pow(x[8], 2.0);
-  double dv2_sq = pow(x[3], 2.0) + pow(x[4], 2.0) + pow(x[5], 2.0);
 
   // Type cast transfer data to it's actual type.
   transfer_data *d = (transfer_data *) data;
 
-  // The first three constraints are that delta-v's do not exceed the max.
-  result[0] = dv1_sq - pow(d->ship.max_single_impulse, 2);
-  result[1] = dv2_sq - pow(d->ship.max_single_impulse, 2);
-  result[2] = dv3_sq - pow(d->ship.max_single_impulse, 2);
+  // Construct the transfer to solve for the last two maneuvers.
+  const vec_type state(x, x+12);
+  const vector<vec_type> solved_mnvrs = _nlopt_build_transfer(&state, d);
+
+  // The first five constraints are that delta-v's do not exceed the max.
+  double msi_sq = pow(d->ship.max_single_impulse, 2);
+  double dv_sq = 0.0;
+  for (uint i=0; i<5; i++){
+    dv_sq = pow(solved_mnvrs[i][0], 2.0) + \
+      pow(solved_mnvrs[i][1], 2.0) + \
+      pow(solved_mnvrs[i][2], 2.0);
+    result[i] = dv_sq - msi_sq;
+  }
 
   // Ensure that the transfer times are sequential and spaced by 1 Myrs.
-  result[3] = x[10] - x[11] + MYRS_BETWEEN_DELTAV;
-  result[4] = x[9] - x[10] + MYRS_BETWEEN_DELTAV;
+  result[5] = d->ti - x[9] + MYRS_BETWEEN_DELTAV;
+  result[6] = x[9] - x[10] + MYRS_BETWEEN_DELTAV;
+  result[7] = x[10] - x[11] + MYRS_BETWEEN_DELTAV;
+  result[8] = x[11] - d->tf + MYRS_BETWEEN_DELTAV;
 
   //TODO: Add Gradient.
   return;
@@ -277,7 +285,6 @@ bool Transfer::_check_common_constraints() {
 
   // Check that no delta-v's exceed the max impulse or falls outside the simulation..
   for (auto dv : deltavs) {
-    printf("dv mag: %f, max = %f\n", dv.mag(), ship.max_single_impulse);
     if (dv.mag() > ship.max_single_impulse) { return false; }
     if (dv.get_time() > 90.0) { return false; }
     if (dv.get_time() < 0.0) { return false; }
@@ -348,7 +355,7 @@ void SettlerShipTransfer::optimal_two_impulse_transfer(double t1, double max_tra
 void SettlerShipTransfer::optimal_five_impulse_transfer(double t1, double t2) {
   /*Build an optimal transfer between two stars for a Settler ship while
   meeting all of it's constraints.*/
-  vec_type initial_conditions(12);
+  vec_type ic(12);
   double optimal_func_value;
   const vec_type xi = (*star1).getState(t1).as_posvel_vector();
   const vec_type xf = (*star2).getState(t2).as_posvel_vector();
@@ -390,16 +397,38 @@ void SettlerShipTransfer::optimal_five_impulse_transfer(double t1, double t2) {
   optimizer.set_maxeval(1000);
   optimizer.set_maxtime(60.0); // seconds
 
-  // Create initial conditions.
-  vec_type dv1(3, 0.0), dv2(3, 0.0);
+  // Create initial conditions. Start with a two-impulse transfer to set the initial delta-v.
+  vec_type dv1(3), dv2(3);
   ::two_impulse_transfer(star1, t1, star2, t2, &dv1, &dv2);
+  // Scale the result so it is within the bounds.
+  double dv1_mag = sqrt(pow(dv1[0], 2.0) + pow(dv1[1], 2.0) + pow(dv1[2], 2.0));
+  double scale = 1.0;
+  if (dv1_mag > ship.max_single_impulse)
+    scale = ship.max_single_impulse / dv1_mag;
+
+  ic[0] = dv1[0] * scale;
+  ic[1] = dv1[1] * scale;
+  ic[2] = dv1[2] * scale;
+
+  // Set times for the intermediate maneuvers at evenly spaced intervals.
+  double delta_t = t2 - t1;
+  ic[9] = t1 + delta_t*0.25;
+  ic[10] = t1 + delta_t*0.5;
+  ic[11] = t1 + delta_t*0.75;
 
   // Call the optimizer.
-  nlopt::result status = optimizer.optimize(initial_conditions, optimal_func_value);
+  nlopt::result status = optimizer.optimize(ic, optimal_func_value);
 
-  cout << "The result is" << endl;
-	cout << status << endl;
-	cout << "Minimal function value " << optimal_func_value << endl;
+  // Store the result in this class's members.
+  const vector<vec_type> solved_mnvrs = ::_nlopt_build_transfer(&ic, &data);
+  deltavs[0].set_time(t1);
+  deltavs[1].set_time(ic[9]);
+  deltavs[2].set_time(ic[10]);
+  deltavs[3].set_time(ic[11]);
+  deltavs[4].set_time(t2);
+
+  for (uint i; i<5; i++)
+    deltavs[i].set_from_vector(solved_mnvrs[i]);
 
   constructed = true;
 }
