@@ -17,7 +17,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
 endif()
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS "-Wall -fopenmp")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
@@ -73,3 +73,6 @@ target_link_libraries(event_test ${external_link_libraries} gtoc)
 
 add_executable(prop_test ${TEST_DIR}/prop_test.cpp)
 target_link_libraries(prop_test ${external_link_libraries} gtoc)
+
+add_executable(count_transfers ${CMAKE_SOURCE_DIR}/test/count_transfers.cpp)
+target_link_libraries(count_transfers ${external_link_libraries} gtoc nlopt)
