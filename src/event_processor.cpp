@@ -9,7 +9,13 @@ void Event_Processor::push(const Event& e) {
 }
 
 void Event_Processor::evolve(double dt) {
-	if(heap_.empty() || buffer_.empty()) return;
+	if(heap_.empty()) return;
+
+	// if buffer is empty, grab next element from heap
+	if(buffer_.empty()) {
+		buffer_.push_back(heap_.top());
+		heap_.pop();
+	}
 
 	// grab event time at front of buffer
 	double t0 = buffer_.front().time;
@@ -33,7 +39,7 @@ std::vector<Event> Event_Processor::pop() {
 	if(buffer_.empty()) return std::vector<Event>();
 
 	auto bounds = std::equal_range(buffer_.begin(), buffer_.end(),
-			                       buffer_.front().time, comparator());
+			               buffer_.front().time, comparator());
 
 	std::vector<Event> result = std::vector<Event>(bounds.first, bounds.second);
 	buffer_.erase(bounds.first, bounds.second);
