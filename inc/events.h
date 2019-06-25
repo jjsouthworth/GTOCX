@@ -32,22 +32,6 @@ class Event {
         void print_event();
 };
 
-class Event_Queue {
-public:
-	Event_Queue() = default;
-
-	void push(const Event& e);
-	std::vector<Event> pop(double dt);
-
-private:
-	struct comparator {
-		bool operator()(const Event& lhs, const Event& rhs){
-			return lhs.time < rhs.time;
-		};
-	};
-	std::priority_queue<Event, std::vector<Event>, comparator> heap_;
-};
-
 class Event_List{
     public:
         Event_List();
