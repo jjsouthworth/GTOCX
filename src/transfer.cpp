@@ -112,7 +112,9 @@ void two_impulse_transfer(StateVec *x1, double t1, StateVec *x2, double t2, Delt
   // Run the shooter, then re-assign discovered values.
   eom_shooter(&x1_vec, &x2_vec, t2 - t1, &dv1_vec, &dv2_vec);
   dv1->set_from_vector(dv1_vec);
+  dv1->set_time(t1);
   dv2->set_from_vector(dv2_vec);
+  dv2->set_time(t2);
 }
 
 void two_impulse_transfer(StateVec *x1, double t1, StateVec *x2, double t2, vec_type *dv1, vec_type *dv2){
@@ -137,7 +139,9 @@ void two_impulse_transfer(Star *star1, double t1, Star *star2, double t2, DeltaV
     // Compute transfer and reassign variables.
     two_impulse_transfer(&x1_sv, t1, &x2_sv, t2, &dv1_vec, &dv2_vec);
     dv1->set_from_vector(dv1_vec);
+    dv1->set_time(t1);
     dv2->set_from_vector(dv2_vec);
+    dv2->set_time(t2);
 }
 
 const vector<vec_type> _nlopt_build_transfer(const vec_type *state_vec, transfer_data *data){
@@ -296,7 +300,7 @@ bool Transfer::_check_common_constraints() {
   //Check that maneuvers are spaced by 1 Myrs.
   for (uint i=0; i < deltavs.size(); i++)
     for (uint j=0;  j < deltavs.size(); j++) {
-      if (i >= j)
+      if (i >= j || deltavs[i].mag() < 1e-15 || deltavs[j].mag() < 1e-15)
         continue;
       if ( abs(deltavs[i].get_time() - deltavs[j].get_time()) < MYRS_BETWEEN_DELTAV)
         return false;
