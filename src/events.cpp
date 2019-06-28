@@ -1,49 +1,32 @@
+#include <utility>
+#include <vector>
+
 #include "events.h"
 #include "star.h"
+#include "transfer.h"
 
-Event::Event(int ID, event_type Type, double Time, StateVec State){
-    id = ID;
-    type = Type;     
-    state = State;
-    time = Time;
+using namespace std;
+
+ShipLog::ShipLog(double start_time, Star& starting_star, Transfer& transfer){
+  this->start_time = start_time;
+  this->starting_star = starting_star;
+  this->transfer = transfer;
 }
 
-void Event::print_event(){
-    std::string stype;
-    switch(type){
-        case LAUNCH:   
-            stype = "Launch"; 
-            break;
-        case LAND:     
-            stype = "Land";     
-            break;
-        case MANUVER:  
-            stype = "Manuver";   
-            break;
-        case RENDEVOUS:
-            stype = "Rendevous"; 
-            break;
-        case SETTLE:   
-            stype = "Settle";    
-            break;
-        case ORIGIN:   
-            stype = "Origin";    
-            break;
-        default:       
-            stype = "None";      
-            break;
-    }
-    printf("Event id:\t%d\t%s\n",id,stype.c_str());
-    printf("Time:\t\t%f\n",time);
-    printf("Location:\t%f\t%f\t%f\n",state.x(), state.y(), state.z());
-    printf("Motion:\t\t%f\t%f\t%f\n",state.vx(),state.vy(),state.vz());
-    printf("Acceleration:\t%f\t%f\t%f\n",state.ax(),state.ay(),state.az());
+void ShipLog::print_log(){
+  cout << "Implment me..." << endl;
 }
 
-Event_List::Event_List(){
-    // TODO, initialize this to Sol coordinates at this time
-    Star sol = Star(0,8.34,180.0,0.0,0.0,-162.47249203851774016,1);
-    StateVec state = sol.getState(0.0);
-    Event Sol (0,ORIGIN,0,state);
-    events.push_back(Sol);
+void ShipLog::add_colonized_star(double time, Star& star){
+  pair<double, Star> colonize_event;
+  colonize_event = make_pair(time, star);
+  colonized_stars.push_back(colonize_event);
+}
+
+vector<Star> ShipLog::get_colonized_stars(){
+  vector<Star> stars(colonized_stars.size());
+  for (auto colonize_event : colonized_stars)
+    stars.push_back(colonize_event.second);
+
+  return stars;
 }
