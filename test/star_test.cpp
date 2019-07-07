@@ -2,14 +2,15 @@
 #include <string>
 
 #include <boost/program_options.hpp>
-#include <Eigen/Dense>
+//#include <Eigen/Dense>
 
 namespace po = boost::program_options;
 
 #include "star.h"
 
 int main(int argc, char** argv) {
-  std::string star_file;
+  std::string star_file="../data/stars.txt";
+  /*
   po::options_description desc("Options in test");
   desc.add_options()
       ("help,h", "Write help message")
@@ -23,8 +24,10 @@ int main(int argc, char** argv) {
     std::cout << desc << "\n";
     return 1;
   }
+  */
 
   Galaxy allStars;
+  std::vector<Star*> sol_hood;
   allStars.loadStars(star_file);
   std::cout << "Loaded: " << allStars.starVec.size() << " stars." << std::endl;
   StateVec starState;
@@ -38,5 +41,10 @@ int main(int argc, char** argv) {
       //printStar(allStars.starVec[ii]);
     }
   }
+  sol_hood = allStars.nearestKStars(0, 0.0, 5);
+  for (uint ii=0; ii<sol_hood.size(); ++ii) {
+    printStar(*sol_hood[ii]);
+  }
+  
   return 0;
 }
