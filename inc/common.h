@@ -3,6 +3,7 @@
 #include <array>
 #include <vector>
 #include <iostream>
+#include <cmath>
 
 class StateVec {
  public:
@@ -122,6 +123,12 @@ class StateVec {
     std::vector<double> tmp = {sv_data[0], sv_data[1], sv_data[2],
                                sv_data[3], sv_data[4], sv_data[5]};
     return tmp;
+  }
+
+  double norm(StateVec othr) {
+    return sqrt(pow(othr.x() - sv_data[0],2) + pow(othr.y() - sv_data[1],2) + pow(othr.z() - sv_data[2],2) + \
+        pow(othr.vx() - sv_data[3],2) + pow(othr.vy() - sv_data[4],2) + pow(othr.vz() - sv_data[5],2) + \
+        pow(othr.ax() - sv_data[6],2) + pow(othr.ay() - sv_data[7],2) + pow(othr.az() - sv_data[8],2));
   }
 
   void print_state(const std::ostream&) const {
