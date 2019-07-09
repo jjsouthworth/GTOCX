@@ -154,6 +154,9 @@ static const int SEC_PER_YR = 31557600; // sec
 static const double KM_PER_SEC_TO_KPC_PER_MYR = 1E6*SEC_PER_YR / KM_PER_KPC;
 
 static const double MYRS_BETWEEN_DELTAV = 1.0;
+static const double INNER_RADIUS_BOUNDARY = 2.0; // kpc
+static const double OUTER_RADIUS_BOUNDARY = 32.0; // kpc
+
 
 // Define structures that hold information about each ship type.
 typedef struct {
