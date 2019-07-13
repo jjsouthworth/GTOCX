@@ -7,11 +7,8 @@
 
 using namespace std;
 
-ShipLog::ShipLog(double start_time, Star& starting_star, Transfer& transfer){
-  this->start_time = start_time;
-  this->starting_star = starting_star;
-  this->transfer = transfer;
-}
+ShipLog::ShipLog(double start_time, Star& starting_star, Transfer& transfer):
+  start_time(start_time),starting_star(starting_star),transfer(transfer){}
 
 void ShipLog::print_log(){
   cout << "Implment me..." << endl;
@@ -23,7 +20,7 @@ void ShipLog::add_colonized_star(double time, Star& star){
   colonized_stars.push_back(colonize_event);
 }
 
-vector<Star> ShipLog::get_colonized_stars(){
+vector<Star> ShipLog::get_colonized_stars(void){
   vector<Star> stars(colonized_stars.size());
   for (auto colonize_event : colonized_stars)
     stars.push_back(colonize_event.second);

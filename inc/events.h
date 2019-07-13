@@ -19,7 +19,7 @@ class ShipLog {
       // Member Functions
       void print_log();
       void add_colonized_star(double time, Star& star);
-      std::vector<Star> get_colonized_stars();
+      std::vector<Star> get_colonized_stars(void);
 
     protected:
       std::vector<std::pair<double, Star>> colonized_stars;
