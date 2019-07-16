@@ -78,3 +78,16 @@ void two_impulse_transfer(StateVec *x1, double t1, StateVec *x2, double t2, Delt
 void two_impulse_transfer(StateVec *x1, double t1, StateVec *x2, double t2, vec_type *dv1, vec_type *dv2);
 void two_impulse_transfer(Star *star1, double t1, Star *star2, double t2, DeltaV *dv1, DeltaV *dv2);
 void two_impulse_transfer(Star *star1, double t1, Star *star2, double t2, vec_type *dv1, vec_type *dv2);
+
+// A struct that contains extra data needed to compute NLOPT objective functions.
+typedef struct {
+  const double ti, tf;
+  const vec_type *xi, *xf;
+  ship_info ship;
+} transfer_data;
+
+
+int eom_shooter(vec_type *x1, vec_type *x2, double dt, vec_type *dv1, vec_type *dv2, double tol=1e-13, vec_type *deriv=NULL);
+const std::vector<vec_type> nlopt_build_transfer(const vec_type *state_vec, transfer_data *data, vec_type *deriv);
+double nlopt_cost(const vec_type &x, vec_type &dcdx, void *data);
+void nlopt_constraints(unsigned, double *result, unsigned, const double *x, double *deriv, void* data);

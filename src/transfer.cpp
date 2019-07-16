@@ -14,16 +14,9 @@ typedef std::vector<double> vec_type;
 typedef Eigen::Matrix<double, 6, 6> STM;
 typedef Eigen::Matrix<double, 3, 3> SubSTM;
 
-// A struct that contains extra data needed to compute NLOPT objective functions.
-typedef struct {
-  const double ti, tf;
-  const vec_type *xi, *xf;
-  ship_info ship;
-} transfer_data;
-
-
 // Define functions that are used to build transfers.
-int eom_shooter(vec_type *x1, vec_type *x2, double dt, vec_type *dv1, vec_type *dv2, double tol = 1e-13){
+int eom_shooter(vec_type *x1, vec_type *x2, double dt, vec_type *dv1, vec_type *dv2,
+  double tol, vec_type *deriv){
   /*Compute the two delta-v's for transfering from R1 to R2 with
   transfer time dt.*/
 
@@ -58,8 +51,8 @@ int eom_shooter(vec_type *x1, vec_type *x2, double dt, vec_type *dv1, vec_type *
 
   // Iterate up to some max number of iterations. Break early if converged.
   for (iter=0; iter < max_iter; iter++){
-    // Copy the initial state and add the previous iteration's delta-v.
-    x.assign(xi.begin(), xi.end());
+    // Copy the initial state which has the previous iteration's delta-v added.
+    x = xi;
 
     // Propagate the state forward by dt.
     propagate_eom_stm(&x, 0.0, dt);
@@ -90,6 +83,68 @@ int eom_shooter(vec_type *x1, vec_type *x2, double dt, vec_type *dv1, vec_type *
   for (i=0; i<3; i++){
     (*dv1)[i] = xi[i+3] - x1v[i+3];
     (*dv2)[i] = x2v[i+3] - x[i+3];
+  }
+
+  // Use the STM to construct the derivative of the velocities with respect to
+  // the initial and final positions and times.
+  if (deriv != NULL){
+    // Declare new variables needed.
+    vec_type &dd = *deriv;
+    SubSTM A, C, D, Binv;
+    Eigen::Vector3d dv1_dt1, dv1_dt2, dv2_dt1, dv2_dt2;
+    SubSTM dv1_dr1, dv1_dr2, dv2_dr1, dv2_dr2;
+    Eigen::Vector3d v1 = Eigen::Vector3d::Zero(3);
+    Eigen::Vector3d v2 = Eigen::Vector3d::Zero(3);
+    Eigen::Vector3d a2 = Eigen::Vector3d::Zero(3);
+    vec_type dxdt(6);
+
+    // Store the initial and final velocities.
+    for (i=0; i<3; i++){
+      v1[i] = xi[i+3];
+      v2[i] = x[i+3];
+    }
+    // Get the final acceleration as well.
+    eqns_of_motion(x, dxdt);
+    for (i=0; i<3; i++)
+      a2[i] = dxdt[i+3];
+
+    // Extract sub-matrices from the STM.
+    A = Phi.block<3,3>(0, 0);
+    B = Phi.block<3,3>(0,3);
+    C = Phi.block<3,3>(3, 0);
+    D = Phi.block<3,3>(3, 3);
+    Binv = B.inverse(); // Eigen docuemntation says this is best for small (<= 4x4) matrices.
+
+    // Compute derivatives.
+    dv1_dt1 = Binv*v2;
+    dv1_dr1 = (-Binv*A);
+    dv1_dt2 = -Binv*v2;
+    dv1_dr2 = Binv;
+
+    dv2_dt1 = D*Binv*v2 - a2;
+    dv2_dr1 = (C - D*Binv*A);
+    dv2_dt2 = a2 - D*Binv*v2;
+    dv2_dr2 = (D*Binv);
+
+    // Resize the derivative vector and store derivative components.
+    dd.resize(48);
+    for (i=0; i<3; i++)
+      dd[i] = dv1_dt1(i);
+    for (i=0; i<9; i++)
+      dd[i+3] = dv1_dr1(i);
+    for (i=0; i<3; i++)
+      dd[i+12] = dv1_dt2(i);
+    for (i=0; i<9; i++)
+      dd[i+15] = dv1_dr2(i);
+
+    for (i=0; i<3; i++)
+      dd[i+24] = dv2_dt1(i);
+    for (i=0; i<9; i++)
+      dd[i+27] = dv2_dr1(i);
+    for (i=0; i<3; i++)
+      dd[i+36] = dv2_dt2(i);
+    for (i=0; i<9; i++)
+      dd[i+39] = dv2_dr2(i);
   }
 
   // Return 0 if we converged. Return 1 if not.
@@ -144,11 +199,13 @@ void two_impulse_transfer(Star *star1, double t1, Star *star2, double t2, DeltaV
     dv2->set_time(t2);
 }
 
-const vector<vec_type> nlopt_build_transfer(const vec_type *state_vec, transfer_data *data){
+const vector<vec_type> nlopt_build_transfer(const vec_type *state_vec, transfer_data *data, vec_type *deriv){
   uint i;
+  double tol = 1e-10;
   vec_type dv1, dv2, dv3, dv4, dv5;
   vec_type dv1_tmp(3, 0.0), dv2_tmp(3, 0.0);
   const vec_type& x = *state_vec;
+  vec_type shooter_deriv;
 
   double t2 = x[0];
   vec_type R2 = { x[1], x[2], x[3] };
@@ -157,98 +214,171 @@ const vector<vec_type> nlopt_build_transfer(const vec_type *state_vec, transfer_
   double t4 = x[8];
   vec_type R4 = { x[9], x[10], x[11] };
 
+  // Ensure the derivative vector is the correct size.
+  vec_type &global_deriv = *deriv;
+  global_deriv.resize(144);
+
   // Propagate the first leg of the trajectory.
   double t1 = data->ti;
   vec_type x1 = (*data->xi);  // Create a vector with initial state.
   vec_type x2 = { R2[0], R2[1], R2[2], 0.0, 0.0, 0.0 }; // Initialize the velocity as 0, then use the solved "delta-v" as the velocity solution.
-  ::eom_shooter(&x1, &x2, t2 - t1, &dv1_tmp, &dv2_tmp);
+  ::eom_shooter(&x1, &x2, t2 - t1, &dv1_tmp, &dv2_tmp, tol, &shooter_deriv);
   // Store the first delta-v.
   dv1 = dv1_tmp;
   // Replace the solved second "delta-v" as the velocity of arrival at R2.
   for (i=0; i<3; i++)
     x2[i+3] = -dv2_tmp[i];
+  // Store the derivative from this leg of the transfer in the total derivative vector.
+  for (i=0; i<12; i++){
+    global_deriv[i] = shooter_deriv[i+12];
+    global_deriv[i+12] = shooter_deriv[i+36];
+  }
 
   // Repeat for the second leg of the trajectory.
   vec_type x3 = { R3[0], R3[1], R3[2], 0.0, 0.0, 0.0 };
-  ::eom_shooter(&x2, &x3, t3 - t2, &dv1_tmp, &dv2_tmp);
+  ::eom_shooter(&x2, &x3, t3 - t2, &dv1_tmp, &dv2_tmp, tol, &shooter_deriv);
   // Store the second delta-v.
   dv2 = dv1_tmp;
   // Replace the solved second "delta-v" as the velocity of arrival at R3.
   for (i=0; i<3; i++)
     x3[i+3] = -dv2_tmp[i];
+  // Store the derivative from this leg of the transfer in the total derivative vector.
+  for (i=0; i<48; i++)
+    global_deriv[i+24] = shooter_deriv[i];
 
   // Repeat for the third leg of the transfer.
   vec_type x4 = { R4[0], R4[1], R4[2], 0.0, 0.0, 0.0 };
-  ::eom_shooter(&x3, &x4, t4 - t3, &dv1_tmp, &dv2_tmp);
+  ::eom_shooter(&x3, &x4, t4 - t3, &dv1_tmp, &dv2_tmp, tol, &shooter_deriv);
   // Store the third delta-v.
   dv3 = dv1_tmp;
   // Replace the solved second "delta-v" as the velocity of arrival at R4.
   for (i=0; i<3; i++)
     x4[i+3] = -dv2_tmp[i];
+  // Store the derivative from this leg of the transfer in the total derivative vector.
+  for (i=0; i<48; i++)
+    global_deriv[i+72] = shooter_deriv[i];
 
   // Repeat for the final leg of the transfer.
   double t5 = data->tf;
   vec_type x5 = (*data->xf);  // Create a vector with initial state.
-  ::eom_shooter(&x4, &x5, t5 - t4, &dv1_tmp, &dv2_tmp);
+  ::eom_shooter(&x4, &x5, t5 - t4, &dv1_tmp, &dv2_tmp, tol, &shooter_deriv);
   // Store the fourth and fifth delta-v.
   dv4 = dv1_tmp;
   dv5 = dv2_tmp;
+  // Store the derivative from this leg of the transfer in the total derivative vector.
+  for (i=0; i<12; i++){
+    global_deriv[i+120] = shooter_deriv[i];
+    global_deriv[i+132] = shooter_deriv[i+24];
+  }
 
   const vector<vec_type> all_dvs = { dv1, dv2, dv3, dv4, dv5 };
   return all_dvs;
 }
 
-double nlopt_cost(const vec_type &x, vec_type &, void *data){
+double nlopt_cost(const vec_type &x, vec_type &dcdx, void *data){
   /*The objective function, which returns the total delta-v for a 5-impulse
    transfer.*/
+  uint i, j, k;
   double cost = 0.0;
+  vec_type dvdx(144);
 
   // Type cast transfer data to it's actual type.
   transfer_data *d = (transfer_data *) data;
 
   // Construct the delta-v's from the state vector.
-  const vector<vec_type> all_dvs = nlopt_build_transfer(&x, d);
+  const vector<vec_type> dvs = nlopt_build_transfer(&x, d, &dvdx);
 
   // Sum the cost.
-  for(auto dv : all_dvs)
+  for(auto dv : dvs)
     cost += dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2];
 
-  printf("\nt2=%f, R2=[%f, %f, %f]\nt3=%f, R3=[%f, %f, %f]\nt4=%f, R4=[%f, %f, %f]\nCost: %f\n", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10], x[11], cost);
+  // Resize the derivative if it is not the correct size.
+  if (!dcdx.empty()){
+    dcdx.resize(12);
+    for (i=0; i<12; i++)
+      dcdx[i] = 0.0;
+
+    for (i=0; i<3; i++){
+      for (j=0; j<4; j++){
+        k=3*j + i; // locator witin a block of dv#/dx partials.
+        dcdx[j] += dvs[0][i]*dvdx[k] + dvs[1][i]*(dvdx[24+k] - dvdx[12+k]) - dvs[2][i]*dvdx[48+k];
+        dcdx[j+4] += dvs[1][i]*dvdx[k+36] + dvs[2][i]*(dvdx[k+72] - dvdx[k+60]) - dvs[3][i]*dvdx[96+k];
+        dcdx[j+8] += dvs[2][i]*dvdx[k+84] + dvs[3][i]*(dvdx[k+120] - dvdx[k+108]) - dvs[4][i]*dvdx[132+k];
+      }
+    }
+    // Multiply all partials by 2.0 since that was skipped in the accumulation step.
+    for (i=0; i<12; i++)
+      dcdx[i] *= 2.0;
+  }
   return cost;
 }
 
 
-void nlopt_constraints(unsigned, double *result, unsigned, const double *x, double *, void* data){
+void nlopt_constraints(unsigned, double *result, unsigned, const double *x, double *deriv, void* data){
   /*The vector inequality constraint function. Enforces time between
     maneuvers and max delta-v per impulse. */
+  uint i, j, k;
+  double dv_sq, msi_sq;
+  vec_type dvdx(144);  // velocity partials
 
   // Type cast transfer data to it's actual type.
   transfer_data *d = (transfer_data *) data;
+  msi_sq = pow(d->ship.max_single_impulse, 2);
 
   // Construct the transfer to get the delta-v's.
   const vec_type state(x, x+12);
-  const vector<vec_type> solved_mnvrs = nlopt_build_transfer(&state, d);
+  const vector<vec_type> dvs = nlopt_build_transfer(&state, d, &dvdx);
 
   // The first five constraints are that delta-v's do not exceed the max.
-  double msi_sq = pow(d->ship.max_single_impulse, 2);
-  double dv_sq = 0.0;
   for (uint i=0; i<5; i++){
-    dv_sq = pow(solved_mnvrs[i][0], 2.0) + \
-      pow(solved_mnvrs[i][1], 2.0) + \
-      pow(solved_mnvrs[i][2], 2.0);
+    dv_sq = pow(dvs[i][0], 2.0) + pow(dvs[i][1], 2.0) + pow(dvs[i][2], 2.0);
     result[i] = dv_sq - msi_sq;
   }
 
   // Ensure that the transfer times are sequential and spaced by 1 Myrs.
-  result[5] = d->ti - x[0] + MYRS_BETWEEN_DELTAV;
-  result[6] = x[0] - x[4] + MYRS_BETWEEN_DELTAV;
-  result[7] = x[4] - x[8] + MYRS_BETWEEN_DELTAV;
-  result[8] = x[8] - d->tf + MYRS_BETWEEN_DELTAV;
+  result[5] = x[0] - x[4] + MYRS_BETWEEN_DELTAV;
+  result[6] = x[4] - x[8] + MYRS_BETWEEN_DELTAV;
 
-  //TODO: Add Gradient.
+  // Initialize the constraint jacobian.
+  if (deriv){
+    vector<vec_type> dcdx(7);  // constraint partials
+    for (i=0; i<7; i++)
+      dcdx[i] = vec_type(12, 0.0);
+
+    // Compute the jacobian of the delta-v constraints.
+    for (i=0; i<3; i++){
+      for (j=0; j<4; j++){
+        k = 3*j + i;
+        dcdx[0][j] += 2.0*dvs[0][i]*dvdx[k];
+
+        dcdx[1][j] += 2.0*dvs[1][i]*(dvdx[k+24] - dvdx[k+12]);
+        dcdx[1][j+4] += 2.0*dvs[1][i]*dvdx[k+36];
+
+        dcdx[2][j] -= 2.0*dvs[2][i]*dvdx[k+48];
+        dcdx[2][j+4] += 2.0*dvs[2][i]*(dvdx[k+72] = dvdx[k+60]);
+        dcdx[2][j+8] += 2.0*dvs[2][i]*dvdx[k+84];
+
+        dcdx[3][j+4] -= 2.0*dvs[3][i]*dvdx[k+96];
+        dcdx[3][j+8] += 2.0*dvs[3][i]*(dvdx[k+120] - dvdx[k+108]);
+
+        dcdx[4][j+8] -= 2.0*dvs[4][i]*dvdx[k+132];
+      }
+    }
+
+    // Compute the jacobian for the time constraints.
+    dcdx[5][0] = 1.0;
+    dcdx[5][4] = -1.0;
+    dcdx[6][4] = 1.0;
+    dcdx[6][8] = -1.0;
+
+    // Populate the array with the values computed.
+    for (i=0; i<7; i++){
+      for (j=0; j<12; j++)
+         deriv[i*12 + j] = dcdx[i][j];
+    }
+  }
   return;
 }
-
 
 // Define the DeltaV class's member functions.
 DeltaV::DeltaV(double t, double dvx, double dvy, double dvz) {
@@ -383,6 +513,7 @@ void SettlerShipTransfer::optimal_five_impulse_transfer(double t1, double t2) {
   double optimal_func_value;
   const vec_type xi = (*star1).getState(t1).as_posvel_vector();
   const vec_type xf = (*star2).getState(t2).as_posvel_vector();
+  vec_type deriv(192);
 
   // Reset any data from currently stored transfers.
   reset_transfer();
@@ -392,7 +523,7 @@ void SettlerShipTransfer::optimal_five_impulse_transfer(double t1, double t2) {
 
   // Generate the optimizer.
   // The state vector will be [t2, R2, t3, R3, t4, R4] (12-elements)
-  auto optimizer = nlopt::opt(nlopt::LN_COBYLA , 12);
+  auto optimizer = nlopt::opt(nlopt::LD_SLSQP , 12);
   optimizer.set_min_objective(::nlopt_cost, &data);
 
   // Define upper and lower bounds for all variables.
@@ -409,11 +540,11 @@ void SettlerShipTransfer::optimal_five_impulse_transfer(double t1, double t2) {
   optimizer.set_upper_bounds(ub);
 
   // Define inequality constraint function.
-  vec_type constraint_tol(2, 1e-3);
+  const vec_type constraint_tol(7, 1e-6);
   optimizer.add_inequality_mconstraint(::nlopt_constraints, (void*)&data, constraint_tol);
 
   // Define the initial step size
-  vec_type init_step(12, 1.0);
+  vec_type init_step(12, 0.1);
   optimizer.set_initial_step(init_step);
 
   // Set the stopping criteria.
@@ -460,7 +591,7 @@ void SettlerShipTransfer::optimal_five_impulse_transfer(double t1, double t2) {
   cout << "Status: " << status << endl;
 
   // Store the result in this class's members.
-  const vector<vec_type> solved_mnvrs = ::nlopt_build_transfer(&ic, &data);
+  const vector<vec_type> solved_mnvrs = ::nlopt_build_transfer(&ic, &data, &deriv);
   deltavs[0].set_time(t1);
   deltavs[1].set_time(ic[0]);
   deltavs[2].set_time(ic[4]);
