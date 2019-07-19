@@ -1,38 +1,48 @@
 #include <memory>
+#include <algorithm>
 
 #include "event_processor.h"
-#include "vessels.h"
 #include "star.h"
 
-std::vector<Event> process_settle(Event& e) {
-	std::vector<Event> result;
-
-	// placeholder...we need a way to get vessel and star directly from event being proccesed
-	std::shared_ptr<Vessel> vessel;
-	std::shared_ptr<Star> star;
-
-	std::vector<Event> events = vessel->settle(star);
-	result.insert(result.end(), events.begin(), events.end());
-
-	return result;
+void Event_Processor::push(const Event& e) {
+	heap_.push(e);
 }
 
-std::vector<Event> Event_Processor::process(Event& e) {
-	switch(e.type) {
-		case LAUNCH:
+void Event_Processor::evolve(double dt) {
+	if(heap_.empty()) return;
+
+	// if buffer is empty, grab next element from heap
+	if(buffer_.empty()) {
+		buffer_.push_back(heap_.top());
+		heap_.pop();
+	}
+
+	// grab event time at front of buffer
+	double t0 = buffer_.front().time;
+
+	// find all events in heap that occur within dt of t0
+	while(!heap_.empty()) {
+		if(heap_.top().time - t0 < dt) {
+			buffer_.push_back(heap_.top());
+			heap_.pop();
+		} else {
 			break;
-		case LAND:
-			break;
-		case MANUVER:
-			break;
-		case RENDEVOUS:
-			break;
-		case SETTLE:
-			return process_settle(e);
-		case ORIGIN:
-			break;
-		default:
-			break;
+		}
 	}
 }
 
+const std::deque<Event>& Event_Processor::buffer() const {
+	return buffer_;
+}
+
+std::vector<Event> Event_Processor::pop() {
+	if(buffer_.empty()) return std::vector<Event>();
+
+	auto bounds = std::equal_range(buffer_.begin(), buffer_.end(),
+			               buffer_.front().time, comparator());
+
+	std::vector<Event> result = std::vector<Event>(bounds.first, bounds.second);
+	buffer_.erase(bounds.first, bounds.second);
+
+	return result;
+}

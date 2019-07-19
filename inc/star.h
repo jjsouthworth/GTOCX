@@ -1,8 +1,10 @@
 #pragma once
 
 #include <string>
+#include <map>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 #include <sstream>
 #include <fstream>
 #include <iostream>
@@ -44,6 +46,8 @@ public:
 
     // member functions
     void loadStars(std::string filename);
+    std::vector<Star*> nearestKStars(int starInd, double epoch, int k);
+    std::vector<Star*> nearestKStars(StateVec state, double epoch, int k);
 
 };
 

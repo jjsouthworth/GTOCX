@@ -3,6 +3,7 @@
 #include <array>
 #include <vector>
 #include <iostream>
+#include <cmath>
 
 class StateVec {
  public:
@@ -124,6 +125,12 @@ class StateVec {
     return tmp;
   }
 
+  double norm(StateVec othr) {
+    return sqrt(pow(othr.x() - sv_data[0],2) + pow(othr.y() - sv_data[1],2) + pow(othr.z() - sv_data[2],2) + \
+        pow(othr.vx() - sv_data[3],2) + pow(othr.vy() - sv_data[4],2) + pow(othr.vz() - sv_data[5],2) + \
+        pow(othr.ax() - sv_data[6],2) + pow(othr.ay() - sv_data[7],2) + pow(othr.az() - sv_data[8],2));
+  }
+
   void print_state(const std::ostream&) const {
     printf("%.3f, %.3f, %.3f, %.6f, %.6f, %.6f\n",sv_data[0], sv_data[1], sv_data[2], sv_data[3], sv_data[4], sv_data[5]);
   }
@@ -154,6 +161,9 @@ static const int SEC_PER_YR = 31557600; // sec
 static const double KM_PER_SEC_TO_KPC_PER_MYR = 1E6*SEC_PER_YR / KM_PER_KPC;
 
 static const double MYRS_BETWEEN_DELTAV = 1.0;
+static const double INNER_RADIUS_BOUNDARY = 2.0; // kpc
+static const double OUTER_RADIUS_BOUNDARY = 32.0; // kpc
+
 
 // Define structures that hold information about each ship type.
 typedef struct {

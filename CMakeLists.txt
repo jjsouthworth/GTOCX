@@ -17,7 +17,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
 endif()
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS "-Wall -fopenmp")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
@@ -65,6 +65,9 @@ set(EXECUTABLE_OUTPUT_PATH ${BIN_DIR})
 add_executable(transfer_test ${CMAKE_SOURCE_DIR}/test/transfer_test.cpp)
 target_link_libraries(transfer_test ${external_link_libraries} gtoc nlopt)
 
+add_executable(num_jac_test ${CMAKE_SOURCE_DIR}/test/num_jac_test.cpp)
+target_link_libraries(num_jac_test ${external_link_libraries} gtoc nlopt)
+
 add_executable(star_test ${TEST_DIR}/star_test.cpp)
 target_link_libraries(star_test ${external_link_libraries} gtoc)
 
@@ -76,5 +79,3 @@ target_link_libraries(prop_test ${external_link_libraries} gtoc)
 
 add_executable(merit_function_test ${TEST_DIR}/merit_function_test.cpp)
 target_link_libraries(merit_function_test ${external_link_libraries} gtoc)
-
-

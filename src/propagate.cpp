@@ -43,7 +43,6 @@ void eqns_of_motion(const vector<double> &x, vector<double> &dxdt, double)
 	 * Output 'dxdt' is 6-elements containing velocity (kpc/Myr) and acceleration (kpc/Myr^2) */
 	double r, vc, fr;
 
-
 	r = sqrt(x[0] * x[0] + x[1] * x[1] + x[2] * x[2]);  // kpc
 
 	vc = KM_PER_SEC_TO_KPC_PER_MYR / _kr(r);  // kpc/Myr
@@ -58,7 +57,7 @@ void eqns_of_motion(const vector<double> &x, vector<double> &dxdt, double)
 }
 
 
-void eqns_of_motion_stm(const vector<double> &x, vector<double> &dxdt, double t)
+void eqns_of_motion_stm(const vector<double> &x, vector<double> &dxdt, double)
 {
 	/* Central-Force equations of motion including a State-Transition Matrix (STM).
 	 * State vector 'x' is 42-elements contiaining position (kpc), velocity (kpc/Myr),
@@ -69,7 +68,7 @@ void eqns_of_motion_stm(const vector<double> &x, vector<double> &dxdt, double t)
 	int i, j;
 
 	// Populate the velocity and acceleration terms
-	eqns_of_motion(x, dxdt, t);
+	eqns_of_motion(x, dxdt);
 
 	// Create a matrix to store the STM.
 	for (i=0; i<36; i++)

@@ -12,7 +12,7 @@ int main(){
   // Initialize variables.
   string star_file = "../data/stars.txt";
   double t0 = 0.0;
-  double t1 = 10.0;
+  double t1 = 15.0;
   int i1, i2;
 
   // Set the random number generator seed to the current time.
@@ -26,10 +26,12 @@ int main(){
 
   // Build transfers from Sol to all other stars.
   cout <<"\nBuilding transfers from t=" << t0 << " Myrs to t=" << t1 << " MYrs." << endl;
-  for (uint i=1; i < 10; ++i){
+  for (uint i=0; i < 1; i++){
     // Create a random transfer.
-    i1 = rand() % (NUM_STARS - 1) + 1;
-    i2 = rand() % (NUM_STARS - 1) + 1;
+    // i1 = rand() % (NUM_STARS - 1) + 1;
+    // i2 = rand() % (NUM_STARS - 1) + 1;
+    i1 = 0;
+    i2 = 62245;
     star1 = galaxy[i1];
     star2 = galaxy[i2];
     printf("====================================\n");
@@ -39,9 +41,6 @@ int main(){
     printf("FAST SHIP TRANSFER\n");
     auto fs_transfer = FastShipTransfer(star1, star2);
 
-    printf("\nEmpty Transfer:\n");
-    fs_transfer.print_transfer();
-
     printf("\nTwo-Impulse Transfer\n");
     cout << "Enter two_impulse_transfer:" << endl;
     fs_transfer.two_impulse_transfer(t0, t1);
@@ -50,9 +49,6 @@ int main(){
     printf("-----------------------------------\n");
     printf("SETTLER SHIP TRANSFERS\n");
     auto ss_transfer = SettlerShipTransfer(star1, star2);
-
-    printf("Empty Transfer:\n");
-    ss_transfer.print_transfer();
 
     printf("\nTwo-Impulse Transfer\n");
     ss_transfer.two_impulse_transfer(t0, t1);

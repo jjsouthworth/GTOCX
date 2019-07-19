@@ -108,6 +108,41 @@ void Galaxy::loadStars(std::string filename) {
     infile.close();
 }
 
+std::vector<Star*> Galaxy::nearestKStars(int starInd, double epoch, int k=1) {
+// process stuff, then call other overload of function
+    StateVec state = starVec[starInd].getState(epoch);
+    std::vector<Star*> neighbors = nearestKStars(state, epoch, k);
+    return neighbors;
+}
+
+std::vector<Star*> Galaxy::nearestKStars(StateVec state, double epoch, int k=1) {
+    std::vector<Star*> neighbors;
+    std::map<double, int> distances; //keys=distances, values=indices
+    for (uint ii=0; ii<starVec.size(); ++ii) {
+        StateVec tmpState = starVec[ii].getState(epoch);
+        double mag = state.norm(tmpState);
+
+	// track distances
+	distances[mag] = ii;
+    }
+
+    // add stars into neighbors vector if norm is one of k-smallest
+    // skip any vector that is essentially co-located or settled
+    //std::sort(distances.begin(), distances.end());
+    std::map<double,int>::iterator index = distances.begin();
+    while (neighbors.size() < k && index != distances.end()) {
+        if (index->first < 1E-6) {index++; continue;}
+        if (starVec[index->second].isSettled) {index++; continue;}
+        neighbors.push_back(&starVec[index->second]);
+        index++;
+	std::cout << "starID: " << index->second << " distance from sol: " << index->first << std::endl;
+    }
+    return neighbors;
+}
+
+// end Galaxy class
+//////////////////////////////////////////////////////////////////
+
 // non-member functions
 void printStar(Star star) {
     std::cout << "Star ID: " << star.id << std::endl;
