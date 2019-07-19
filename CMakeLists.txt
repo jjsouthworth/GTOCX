@@ -73,3 +73,8 @@ target_link_libraries(event_test ${external_link_libraries} gtoc)
 
 add_executable(prop_test ${TEST_DIR}/prop_test.cpp)
 target_link_libraries(prop_test ${external_link_libraries} gtoc)
+
+add_executable(merit_function_test ${TEST_DIR}/merit_function_test.cpp)
+target_link_libraries(merit_function_test ${external_link_libraries} gtoc)
+
+
