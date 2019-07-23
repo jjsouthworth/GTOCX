@@ -37,6 +37,7 @@ int main(void){
         for(size_t ii = 0; ii < events.size(); ++ii) {
             if(dist3(gen) < 0.333) { // 1/3 of processed events will generate new events
                 double t = events[ii].start_time() + 3000000.0; // 3M years from start_time
+                if(t > 90000000) continue; // skip events that occur after 90M years
                 ShipLog log(t, dummy);
                 processor.push(log);
             }
