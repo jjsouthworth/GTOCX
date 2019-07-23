@@ -1,29 +1,32 @@
 #pragma once
 
-#include "events.h"
+#include "shiplog.h"
 
 class Event_Processor {
 public:
 	Event_Processor() = default;
 
-	// push event onto heap
-	void push(const Event& e);
+	// push ShipLog/event onto heap
+	void push(const ShipLog& e);
 
-	// evolve system by moving all events within dt of next event into buffer
+	// evolve system by moving all ShipLogs/events within dt of next ShipLog/event into buffer
 	void evolve(double dt);
 
 	// get access to buffer (FIFO)
-	const std::deque<Event>& buffer() const;
+	const std::deque<ShipLog>& buffer() const;
 
-	// pop all first event from buffer (and all concurrent events)
-	std::vector<Event> pop();
+	// pop all first ShipLog/event from buffer (and all concurrent ShipLogs/events)
+	std::vector<ShipLog> pop();
+
+	// number of ShipLogs/events
+	size_t size() const;
 
 private:
 	struct comparator {
-		bool operator()(const Event& lhs, const Event& rhs){return lhs.time < rhs.time;};
-		bool operator()(const Event& lhs, double rhs){return lhs.time < rhs;};
-		bool operator()(double lhs, const Event& rhs){return lhs < rhs.time;};
+		bool operator()(const ShipLog& lhs, const ShipLog& rhs){return lhs.start_time() < rhs.start_time();};
+		bool operator()(const ShipLog& lhs, double rhs){return lhs.start_time() < rhs;};
+		bool operator()(double lhs, const ShipLog& rhs){return lhs < rhs.start_time();};
 	};
-	std::priority_queue<Event, std::vector<Event>, comparator> heap_;
-	std::deque<Event> buffer_;
+	std::priority_queue<ShipLog, std::vector<ShipLog>, comparator> heap_;
+	std::deque<ShipLog> buffer_;
 };

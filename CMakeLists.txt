@@ -55,7 +55,7 @@ set(TEST_DIR ${CMAKE_SOURCE_DIR}/test)
 set(BIN_DIR ${CMAKE_SOURCE_DIR}/bin)
 set(INC_DIR ${CMAKE_SOURCE_DIR}/inc)
 include_directories(${INC_DIR} ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} ${NLOPT_INCLUDE_DIR})
-set(SOURCES ${SOURCE_DIR}/propagate.cpp ${SOURCE_DIR}/star.cpp ${SOURCE_DIR}/events.cpp ${SOURCE_DIR}/transfer.cpp)
+set(SOURCES ${SOURCE_DIR}/propagate.cpp ${SOURCE_DIR}/star.cpp ${SOURCE_DIR}/shiplog.cpp ${SOURCE_DIR}/transfer.cpp ${SOURCE_DIR}/event_processor.cpp)
 add_library(gtoc ${SOURCES})
 set(external_link_libraries ${Boost_LIBRARIES} ${NLOPT_LIBRARIES})
 
