@@ -11,22 +11,22 @@
 
 int main(void){
 
-	boost::random::mt19937 gen;
+    boost::random::mt19937 gen;
 
-	// generate some initial events within the first 5 million years (time chosen arbitarily)
-	boost::random::uniform_int_distribution<> dist1(1, 6); // up to 6 initial events, at least 1
-	size_t n_events = dist1(gen);
+    // generate some initial events within the first 5 million years (time chosen arbitarily)
+    boost::random::uniform_int_distribution<> dist1(1, 6); // up to 6 initial events, at least 1
+    size_t n_events = dist1(gen);
 
-	Event_Processor processor;
-	boost::random::uniform_real_distribution<> dist2(0.0, 5000000.0); // randomly choose time within first 5M years
-	ship_info dummy;
+    Event_Processor processor;
+    boost::random::uniform_real_distribution<> dist2(0.0, 5.0E6); // randomly choose time within first 5M years
+    ship_info dummy;
     for(size_t ii = 0; ii < n_events; ++ii) {
         ShipLog log(dist2(gen), dummy);
         processor.push(log);
     }
 
     // now, pull these events and randomly generate new events based on processed events
-    const double dt = 1000000;
+    const double dt = 1.0E6;
     std::vector<ShipLog> processed_events;
     boost::random::uniform_real_distribution<> dist3(0, 1.0);
     while(processor.size()) {
@@ -35,8 +35,8 @@ int main(void){
 
         // randomly generate subsequent events
         for(size_t ii = 0; ii < events.size(); ++ii) {
-            double t = events[ii].start_time() + 3000000.0; // 3M years from current event start_time
-            if(t > 90000000) continue; // skip events that occur after 90M years
+            double t = events[ii].start_time() + 3.0E6; // 3M years from current event start_time
+            if(t > 90.0E6) continue; // skip events that occur after 90M years
 
             if(dist3(gen) < 0.75) { // 75% of processed events will generate new events
                 ShipLog log(t, dummy);
