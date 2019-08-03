@@ -26,6 +26,7 @@ int main(){
 
   // Build transfers from Sol to all other stars.
   cout <<"\nBuilding transfers from t=" << t0 << " Myrs to t=" << t1 << " MYrs." << endl;
+  double max_time;
   for (uint i=0; i < 1; i++){
     // Create a random transfer.
     // i1 = rand() % (NUM_STARS - 1) + 1;
@@ -53,6 +54,12 @@ int main(){
     printf("\nTwo-Impulse Transfer\n");
     ss_transfer.two_impulse_transfer(t0, t1);
     ss_transfer.print_transfer();
+
+    printf("\nTwo-Impulse Transfer (Optimal Attempt)\n");
+    max_time = 65-t0;
+    ss_transfer.optimal_two_impulse_transfer(t0, max_time);
+    ss_transfer.print_transfer();
+    t1 = (ss_transfer.deltavs.back()).get_time();
 
     printf("\nFive-Impulse-Transfer\n");
     ss_transfer.optimal_five_impulse_transfer(t0, t1);

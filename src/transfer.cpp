@@ -502,7 +502,39 @@ void SettlerShipTransfer::two_impulse_transfer(double t1, double t2) {
 void SettlerShipTransfer::optimal_two_impulse_transfer(double t1, double max_transfer_time) {
   // Reset any data from currently stored transfers.
   reset_transfer();
+  DeltaV& dv1 = deltavs[0];
+  DeltaV& dv2 = deltavs.back();
 
+  double a = t1;
+  double b = max_transfer_time;
+  double c,d;
+  double gr = (sqrt(5) + 1)/2;
+  double tol = 1e-7;
+  double error = 1e9;
+  double optimal = 0;
+
+  // Golden Section Search, Add pentalty to tmp1 tmp2 if any.
+  // see https://en.wikipedia.org/wiki/Golden-section_search
+  c = b - (b-a)/gr;
+  d = a + (b-a)/gr;
+  double tmp1 = 0;
+  double tmp2 = 0;
+  while(error > tol){
+	  ::two_impulse_transfer(star1, t1, star2, c, &dv1, &dv2);
+	  tmp1 = dv1.mag() + dv2.mag();
+      ::two_impulse_transfer(star1, t1, star2, d, &dv1, &dv2);
+	  tmp2 = dv1.mag() + dv2.mag();
+      if ( tmp1 < tmp2 ){
+	      b = d;
+      }else{
+		  a = c;
+      }
+      c = b - (b-a)/gr;
+      d = a + (b-a)/gr;
+	  error = abs(c-d);
+  }
+  optimal = (b + a)/2;
+  ::two_impulse_transfer(star1, t1, star2, optimal, &dv1, &dv2);
   constructed = true;
 }
 

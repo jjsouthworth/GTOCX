@@ -30,8 +30,8 @@ public:
   double total_deltav();
   virtual void print_transfer() { };
   virtual bool valid_transfer() { return false; };
-protected:
   std::vector<DeltaV> deltavs;
+protected:
   bool constructed;
   ship_info ship;
   bool _check_common_constraints();
